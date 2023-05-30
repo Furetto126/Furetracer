@@ -1,7 +1,7 @@
 # Ignore Dev and built folders
-/saves/
-/resources/
-/GLFW/
+saves/
+resources/
+GLFW/
 
 
 ## Ignore Visual Studio temporary files, build results, and
