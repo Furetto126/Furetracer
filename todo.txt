@@ -1,4 +1,0 @@
-V			Fix save bugs
-SORT OF	    Iterate over multiple spheres using SSBOs 
-X			SET SSBO AS VEC4
-V			MAKE IT WORK WITH OPENTKS
