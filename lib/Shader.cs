@@ -10,7 +10,7 @@ namespace Lib
         int ID;
         List<Sphere> spheresList = new();
 
-        public struct RayTracingMaterial
+        public struct Material
         {
             public vec3 color;              //needs 16 bytes of alignment
             public float smoothness;
@@ -24,10 +24,10 @@ namespace Lib
 
         public struct SphereData
         {
-            public vec3 position;
+            public vec3 position;           //needs 16 bytes of alignment
             public float radius;
 
-            public RayTracingMaterial material;
+            public Material material;
         }
 
         public Shader(string vertexPath, string fragmentPath)
@@ -162,7 +162,7 @@ namespace Lib
             {
                 position = s.position,
                 radius = s.radius,
-                material = new RayTracingMaterial
+                material = new Material
                 {
                     color = s.color,
                     smoothness = s.smoothness,
