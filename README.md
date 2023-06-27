@@ -8,4 +8,6 @@ While inside of the program you can move the camera using the scroll wheel (both
 By clicking "V" you can spawn a sphere at your location, with "Ctrl + S" you save your scene and with "Ctrl + L" you load it.
 Click "Esc" to quit the program.
 
-If you have any issues write them in the "Issues" section! I'll try my best to answer :)
+## Examples
+
+![A simple scene rendered in 3 seconds on my mid-tier PC](https://cdn.discordapp.com/attachments/900407826755772437/1123351978890756228/image.png)
