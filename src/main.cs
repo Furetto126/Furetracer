@@ -1,456 +1,531 @@
 ﻿using GlmNet;
-
 using Lib;
-using OpenTK.Graphics.OpenGL4;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-
 using ImGuiNET;
 
+using OpenTK.Graphics.OpenGL4;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Mathematics;
 
-namespace 
+class main
 {
-    class main
+    #region Global variables (not including important ones like window etc) and constants
+    private static int colorTest = 0;
+
+    // settings
+    // --------
+    private const int WIDTH = 1200;
+    private const int HEIGHT = 1000;
+
+    private const float mouseSensitivity = 0.001f;
+    public static float fov = 45.0f;
+
+    // shader settings
+    // ---------------
+    public static int maxBounces = 10;
+    public static float ambientWeight = 1.0f;
+    public static int numRaysPerPixel = 10;
+    public static bool isRaytracingActivated = false;
+
+        // Progressive rendering
+        // -------------------------------
+        public static bool progressiveRenderingActivated = false;
+        private static int currentFBO, previousFBO, currentFrameTexture, previousFrameTexture;
+        private static int framesFromRendering = 0;
+
+    // camera
+    // ------
+    private static vec3 cameraPosition = new vec3(0.0f, 0.0f, 0.0f);
+    private static vec3 cameraFront = new vec3(0.0f, 0.0f, 1.0f);
+    private static vec3 cameraUp = new vec3(0.0f, 1.0f, 0.0f);
+    private static vec3 cameraRight = new vec3(glm.normalize(glm.cross(cameraFront, cameraUp)));
+
+    private static float aspectRatio = WIDTH / HEIGHT;
+
+    private static mat4 inverseViewMatrix;
+
+    // mouse and movement
+    // ------------------
+    private static vec2 lastCursorPosition;
+    private static bool isRightMouseButtonPressed = false;
+    private static bool isMiddleMouseButtonPressed = false;
+
+    // paths
+    // -----
+    private static readonly string rootDirectory = Common.GetRootDirectory();
+
+    // generic
+    // -------
+    private static int VAO;
+    private static float spamCooldown = 0.0f;
+    private static int currentWidth = WIDTH, currentHeight = HEIGHT;
+    private static int frames = 0;
+
+    public static StringWriter consoleOutput = new();
+    private static FilteringStringWriter filteringStringWriter = new FilteringStringWriter(consoleOutput);
+    #endregion
+
+    private static GameWindow window;
+    private static ImGuiController controller;
+    private static Shader rayTracerShader = new Shader(Path.Combine(rootDirectory, "src\\shaders\\vertex.vert"), Path.Combine(rootDirectory, "src\\shaders\\fragment.frag"));
+
+    static void Main()
     {
-        #region Global variables and constants
-
-        static int colorTest = 0;
-
-        // settings
-        // --------
-        const int WIDTH = 1200;
-        const int HEIGHT = 1000;
-
-        const float mouseSensitivity = 0.001f;
-        static float fov = 45.0f;
-
-        // shader settings
-        // ---------------
-        const int maxBounces = 3;
-        const float ambientWeight = 1.0f;
-        const int numRaysPerPixel = 25;
-
-        static bool isRaytracingActivated = false;
-
-        // camera
-        // ------
-        static vec3 cameraPosition = new vec3(0.0f, 0.0f, 0.0f);
-        static vec3 cameraFront = new vec3(0.0f, 0.0f, 1.0f);
-        static vec3 cameraUp = new vec3(0.0f, 1.0f, 0.0f);
-        static vec3 cameraRight = new vec3(glm.normalize(glm.cross(cameraFront, cameraUp)));
-
-        static readonly float near = 0.1f;
-        static readonly float far = 100.0f;
-
-        static float aspectRatio = WIDTH / HEIGHT;
-
-        private static mat4 inverseViewMatrix;
-
-        // mouse and movement
-        // ------------------
-        private static vec2 lastCursorPosition;
-        private static bool isRightMouseButtonPressed = false;
-        private static bool isMiddleMouseButtonPressed = false;
-
-        // paths
-        // -----
-        static string rootDirectory = Common.GetRootDirectory();
-        static Shader rayTracerShader = new Shader(Path.Combine(rootDirectory, "src\\shaders\\vertex.vert"), Path.Combine(rootDirectory, "src\\shaders\\fragment.frag"));
-
-        // other
-        // -----
-        static float deltaTime = 0.0f;
-        static float lastFrame = 0.0f;
-        static float spamCooldown = 0.0f;
-
-        static int currentWidth = WIDTH, currentHeight = HEIGHT;
-
-        #endregion
-
-        static void Main()
+        NativeWindowSettings glfwOptions = new NativeWindowSettings
         {
-            #region Window initialization
-            Glfw.Init();
-            Glfw.WindowHint(Hint.ClientApi, ClientApi.OpenGL);
-            Glfw.WindowHint(Hint.ContextVersionMajor, 4);
-            Glfw.WindowHint(Hint.ContextVersionMinor, 5);
-            Glfw.WindowHint(Hint.OpenglProfile, Profile.Core);
-            Glfw.WindowHint(Hint.Doublebuffer, true);
-            Glfw.WindowHint(Hint.Decorated, true);
+            Size = new OpenTK.Mathematics.Vector2i(WIDTH, HEIGHT),
+            Title = "Raytracing Demo",
+            API = ContextAPI.OpenGL,
+            APIVersion = new Version(4, 5),
+            Flags = ContextFlags.ForwardCompatible
+        };
 
-            Window window = Glfw.CreateWindow(WIDTH, HEIGHT, "Ray Tracer Demo", Monitor.None, Window.None);
-            if (window == Window.None)
+        window = new GameWindow(GameWindowSettings.Default, glfwOptions);
+        //window.WindowState = WindowState.Maximized;
+
+        // Attach event handlers
+        // ---------------------
+        window.Load += OnLoad;
+        window.UpdateFrame += OnUpdateFrame;
+        window.RenderFrame += OnRenderFrame;
+        window.Closing += OnClosing;
+
+        // Set Callbacks
+        window.KeyDown += OnKeyDown;
+        window.MouseDown += OnMouseButtonDown;
+        window.MouseUp += OnMouseButtonUp;
+        window.MouseWheel += OnMouseWheel;
+        window.Resize += OnWindowResize;
+
+        window.Run();
+    }
+
+    private static void OnLoad()
+    {
+        // Initialize VAO
+        // ----------------------------------
+        GL.GenVertexArrays(1, out VAO);
+        GL.BindVertexArray(VAO);
+
+        // Set up FBOs and Textures
+        // -----------------------
+        GL.GenFramebuffers(1, out currentFBO);
+        GL.GenFramebuffers(1, out previousFBO);
+        GL.GenTextures(1, out currentFrameTexture);
+        GL.GenTextures(1, out previousFrameTexture);
+
+        // Set up current texture
+        GL.BindTexture(TextureTarget.Texture2D, currentFrameTexture);
+        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, currentWidth, currentHeight, 0, PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+
+        // Set up previous texture
+        GL.BindTexture(TextureTarget.Texture2D, previousFrameTexture);
+        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, currentWidth, currentHeight, 0, PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+
+        // Attach textures
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, currentFBO);
+        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, currentFrameTexture, 0);
+
+        // Completeness check
+        var status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
+        if (status != FramebufferErrorCode.FramebufferComplete)
+        {
+            Console.WriteLine("Framebuffer error: " + status);
+        }
+
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, previousFBO);
+        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, previousFrameTexture, 0);
+
+        // Completeness check
+        status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
+        if (status != FramebufferErrorCode.FramebufferComplete)
+        {
+            Console.WriteLine("Framebuffer error: " + status);
+        }
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+
+        // Initialize ImGui
+        controller = new ImGuiController(WIDTH, HEIGHT);
+
+
+        Console.SetOut(filteringStringWriter);
+    }
+
+    private static void OnUpdateFrame(FrameEventArgs e)
+    {
+        frames++;
+        cameraRight = glm.normalize(glm.cross(cameraFront, cameraUp));
+
+        if (!progressiveRenderingActivated)
+        {
+            if (isRightMouseButtonPressed)
             {
-                Console.WriteLine("Failed to create window");
-                Glfw.Terminate();
-                return;
+                RotateCamera();
             }
-            Glfw.MakeContextCurrent(window);
-            GL.LoadBindings(new GLFWBindingsContext());
-
-            // Enable ImGui
-            // ------------
-            ImGui.CreateContext();
-            //ImGui.StyleColorsDark();
-
-            ImGuiIOPtr io = ImGui.GetIO();
-            io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;
-
-            // Set GLFW Callbacks
-            // ------------------
-            Glfw.SetFramebufferSizeCallback(window, FramebufferSizeCallback);
-            Glfw.SetCursorPositionCallback(window, CursorPositionCallback);
-            Glfw.SetKeyCallback(window, KeyboardCallback);
-            Glfw.SetCharCallback(window, CharCallback);
-            Glfw.SetMouseButtonCallback(window, MouseButtonCallback);
-            Glfw.SetScrollCallback(window, ScrollCallback);
-
-            GL.Enable(EnableCap.DepthTest);
-            Glfw.SetInputMode(window, InputMode.Cursor, (int)CursorMode.Normal);
-
-            GL.GenVertexArrays(1, out int VAO);
-            GL.BindVertexArray(VAO);
-
-            #endregion
-
-            #region Render loop
-            while (!Glfw.WindowShouldClose(window))
+            else if (isMiddleMouseButtonPressed)
             {
-                Glfw.PollEvents();
-
-                float currentTime = (float)Glfw.GetTime();
-                deltaTime = currentTime - lastFrame;
-                lastFrame = currentTime;
-
-                // Put debug stuff here
-                // --------------------
-
-
-                // ImGui
-                // -----
-                //ImGui.NewFrame();
-                //ImGui.Begin("Hello chat");
-                //ImGui.Text("Goodbye chat");
-                //ImGui.End();
-
-                //ImGui.Render();
-
-                // Camera Movement
-                // ---------------
-                cameraRight = glm.normalize(glm.cross(cameraFront, cameraUp));
-
-                if (isRightMouseButtonPressed)
-                {
-                    RotateCamera(window);
-                }
-                else if (isMiddleMouseButtonPressed)
-                {
-                    MoveCamera(window);
-                }
-
-                // Updates
-                // -------
-                UpdateUniforms(rayTracerShader);
-                UpdateScene(rayTracerShader);
-                rayTracerShader.Use();
-
-                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-                GL.BindVertexArray(VAO);
-                GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
-                Glfw.SwapBuffers(window);
-            }
-            
-            // Cleanup
-            // -------
-            GL.DeleteVertexArrays(1, new int[] { VAO });
-            GL.DeleteProgram(rayTracerShader.GetProgramShader());
-
-            ImGui.DestroyContext();
-
-            Glfw.DestroyWindow(window);
-            Glfw.Terminate();
-
-            return;
-            #endregion
-        }
-
-        #region Methods
-        static void UpdateScene(Shader shader)
-        {
-            shader.SendSpheresToShader();
-        }
-
-        static void UpdateUniforms(Shader shader)
-        {
-            // generic
-            // -------
-            shader.SetFloat("time", (float)Glfw.GetTime());
-            shader.SetVec2("resolution", new vec2(currentWidth, currentHeight));
-
-            if (currentHeight != 0 && currentWidth != 0)
-            {
-                shader.SetFloat("aspectRatio", aspectRatio);
-            }
-
-            // camera
-            // ------
-            shader.SetVec3("cameraPosition", cameraPosition);
-            shader.SetVec3("cameraDirection", cameraFront);
-            shader.SetVec3("cameraRight", cameraRight);
-            shader.SetFloat("fov", fov);
-
-            // shader settings
-            // ---------------
-            shader.SetInt("maxBounces", maxBounces);
-            shader.SetInt("numRaysPerPixel", numRaysPerPixel);
-            shader.SetFloat("ambientWeight", ambientWeight);
-            shader.SetBool("raytracingActivated", isRaytracingActivated);
-
-            // matrices
-            // --------
-            inverseViewMatrix = glm.inverse(glm.lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp));
-            shader.SetMat4("viewMatrixInverse", inverseViewMatrix);
-        }
-
-        static void RotateCamera(Window window)
-        {
-            Glfw.GetCursorPosition(window, out double x, out double y);
-
-            vec2 currentCursorPosition = new vec2((float)x, (float)y);
-            vec2 cursorOffset = currentCursorPosition - lastCursorPosition;
-            lastCursorPosition = currentCursorPosition;
-
-            float xOffset = -cursorOffset.x * mouseSensitivity;
-            float yOffset = -cursorOffset.y * mouseSensitivity;
-            float rotationSpeed = 1.0f;
-
-            cameraFront = glm.normalize(cameraFront);
-            cameraFront += (cameraRight * xOffset - cameraUp * yOffset) * rotationSpeed;
-            cameraFront = glm.normalize(cameraFront);
-        }
-
-        static void MoveCamera(Window window)
-        {
-            Glfw.GetCursorPosition(window, out double x, out double y);
-
-            vec2 currentCursorPosition = new vec2((float)x, (float)y);
-            vec2 cursorOffset = currentCursorPosition - lastCursorPosition;
-            lastCursorPosition = currentCursorPosition;
-
-            float xOffset = cursorOffset.x;
-            float yOffset =  cursorOffset.y;
-
-            float cameraSpeed = 0.1f;
-            vec3 tangent = glm.normalize(new vec3(cameraFront.z, 0.0f, -cameraFront.x));
-            vec3 bitangent = glm.cross(cameraFront, tangent);
-
-            vec3 movement = tangent * xOffset + bitangent * yOffset;
-            movement *= cameraSpeed;
-
-            cameraPosition += movement;
-        }
-        #endregion
-
-        #region Callbacks
-        static void FramebufferSizeCallback(Window window, int width, int height)
-        {
-            currentWidth = width;
-            currentHeight = height;
-
-            GL.Viewport(0, 0, width, height);
-
-            if (currentWidth != 0 && currentHeight != 0)
-            {
-                aspectRatio = (float)currentWidth / currentHeight;
-            }else
-            {
-                aspectRatio = 1.1f;
+                MoveCamera();
             }
         }
 
-        static void KeyboardCallback(Window window, Keys key, int scancode, InputState state, ModifierKeys modifier)
+        UpdateUniforms(rayTracerShader);
+        UpdateScene(rayTracerShader);
+    }
+
+    private static void OnRenderFrame(FrameEventArgs e)
+    {
+        // Bind currentFBO
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, currentFBO);
+
+        GL.ClearColor(Color4.Black);
+        GL.Clear(ClearBufferMask.ColorBufferBit);
+
+        if (progressiveRenderingActivated)
         {
-            bool ctrlPressed = (modifier & ModifierKeys.Control) != 0;
-            bool shiftPressed = (modifier & ModifierKeys.Shift) != 0;
+            framesFromRendering++;
+        }else
+        {
+            framesFromRendering = 0;
+        }
 
-            if (state == InputState.Press)
-            {
-                ImGui.GetIO().KeysDown[(int)key] = true;
-            }
-            else if (state == InputState.Release)
-            {
-                ImGui.GetIO().KeysDown[(int)key] = false;
-            }
+        rayTracerShader.SetInt("framesFromRenderStart", framesFromRendering);
+        rayTracerShader.Use();
 
-            if (ctrlPressed && (Glfw.GetTime() - spamCooldown) > 0.5)
+        // Bind previousFrameTexture
+        GL.ActiveTexture(TextureUnit.Texture0);
+        GL.BindTexture(TextureTarget.Texture2D, previousFrameTexture);
+        rayTracerShader.SetInt("previousFrameTex", 0);
+
+        // Render the full-screen quad
+        GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
+
+        // Unbind current FBO
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+
+        GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
+
+        // Swap current and previous FBO and textures
+        Common.Swap(ref currentFBO, ref previousFBO);
+        Common.Swap(ref currentFrameTexture, ref previousFrameTexture);
+
+        // Bind the previous frame texture
+        GL.ActiveTexture(TextureUnit.Texture0);
+        GL.BindTexture(TextureTarget.Texture2D, previousFrameTexture);
+
+        // Draw ImGui
+        controller.Update(window, (float)e.Time);
+        ImGuiHandler.ConstructImGui(rayTracerShader);
+        controller.Render();
+        ImGuiController.CheckGLError("End of frame");
+
+        window.SwapBuffers();
+    }
+
+    private static void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        GL.DeleteVertexArrays(1, new int[] { VAO });
+        GL.DeleteProgram(rayTracerShader.GetProgramShader());
+    }
+
+    #region Callbacks
+    private static void OnKeyDown(KeyboardKeyEventArgs e)
+    {
+        bool ctrlPressed = e.Modifiers == KeyModifiers.Control;
+        bool shiftPressed = e.Modifiers == KeyModifiers.Shift;
+
+        if (e.Key == Keys.Backspace && ImGui.GetIO().WantTextInput)
+        {
+            ImGui.GetIO().AddInputCharacter('\b');
+        }else
+        {
+            controller.PressChar((char)e.Key);
+        }
+        
+
+        if (ctrlPressed)
+        {
+            if (GLFW.GetTime() - spamCooldown > 0.5)
             {
-                switch (key)
+                switch (e.Key)
                 {
                     case Keys.S:
                     {
                         SaveHelper.SaveScene(rayTracerShader);
-                        spamCooldown = (float)Glfw.GetTime();
+                        spamCooldown = (float)GLFW.GetTime();
                         break;
                     }
                     case Keys.L:
                     {
                         SaveHelper.LoadScene(rayTracerShader);
-                        spamCooldown = (float)Glfw.GetTime();
+                        spamCooldown = (float)GLFW.GetTime();
                         break;
                     }
                     case Keys.D:
                     {
                         SaveHelper.ClearScene(rayTracerShader);
-                        spamCooldown = (float)Glfw.GetTime();
+                        spamCooldown = (float)GLFW.GetTime();
                         break;
                     }
                     case Keys.A:
                     {
                         isRaytracingActivated = !isRaytracingActivated;
-                        spamCooldown = (float)Glfw.GetTime();
+                        spamCooldown = (float)GLFW.GetTime();
                         break;
                     }
                 }
             }
-            else if (shiftPressed)
-            {
+        }
+        else if (shiftPressed)
+        {
 
-            }
-            else
+        }
+        else
+        {
+            if (GLFW.GetTime() - spamCooldown > 0.5)
             {
-                if ((Glfw.GetTime() - spamCooldown) > 0.5)
+                switch (e.Key)
                 {
-                    // Has cooldown
-                    switch (key)
+                    case Keys.Escape:
                     {
-                        case Keys.Escape:
-                        {
-                            // At this point, all program tasks have been completed and the application is ready to gracefully terminate.
-                            // Therefore, the following command ensures that the program is closed in an elegant and orderly manner.
-                            // https://cdn.discordapp.com/attachments/870272324111323237/1106268518783144088/image.png
-                            Glfw.SetWindowShouldClose(window, true);
-                            break;
-                        }
-                        case Keys.V:
-                        {
-                            spamCooldown = (float)Glfw.GetTime();
-
-                            if (colorTest == 0)
-                            {
-                                rayTracerShader.AddToSphereList(new Sphere(cameraPosition, 10.0f, new vec3(0.0f), new vec3(1.0f), 1.0f, 0.0f, 0.0f));
-                                colorTest = 1;
-                            }
-                            else
-                            {
-                                float smoothnessAndGlossiness = (float)new Random().NextDouble();
-                                rayTracerShader.AddToSphereList(new Sphere(cameraPosition, 1.0f, new vec3((float)new Random().NextDouble(), (float)new Random().NextDouble(), (float)new Random().NextDouble()), new vec3((float)new Random().NextDouble(), (float)new Random().NextDouble(), (float)new Random().NextDouble()), 0.0f, smoothnessAndGlossiness, smoothnessAndGlossiness));
-                            }
-                            break;
-                        }
+                        // At this point, all program tasks have been completed and the application is ready to gracefully terminate.
+                        // Therefore, the following command ensures that the program is closed in an elegant and orderly manner.
+                        // https://cdn.discordapp.com/attachments/870272324111323237/1106268518783144088/image.png
+                        window.Close();
+                        break;
                     }
-                }
-                else
-                {
-                    // Doesn't have cooldown
-                    switch (key)
+
+                    case Keys.V:
                     {
-                        // Add stuff if needed
+                        spamCooldown = (float)GLFW.GetTime();
+
+                        if (colorTest == 0)
+                        {
+                            rayTracerShader.AddToSphereList(new Sphere(cameraPosition, 100.0f, new vec3(0.0f), new vec3(1.0f), 1.0f, 0.0f, 0.0f));
+                            colorTest = 1;
+                        }
+                        else
+                        {
+                            float smoothnessAndGlossiness = (float)new Random().NextDouble();
+                            rayTracerShader.AddToSphereList(new Sphere(cameraPosition, 1.0f, new vec3((float)new Random().NextDouble(), (float)new Random().NextDouble(), (float)new Random().NextDouble()), new vec3((float)new Random().NextDouble(), (float)new Random().NextDouble(), (float)new Random().NextDouble()), 0.0f, smoothnessAndGlossiness, smoothnessAndGlossiness));
+                        }
+                        break;
                     }
                 }
             }
-        }
-
-        static void CharCallback(Window window, uint codepoint)
-        {
-            ImGui.GetIO().AddInputCharacter((char)codepoint);
-        }
-
-        static void ScrollCallback(Window window, double xoffset, double yoffset)
-        {
-            /*fov -= (float)yoffset;
-            if (fov < 1.0) fov = 1.0f;
-            if (fov > 45.0) fov = 45.0f;*/
-
-            float cameraSpeed = 1.5f;
-            cameraPosition += cameraFront * -(float)yoffset * cameraSpeed;
-
-        }
-
-        static void MouseButtonCallback(Window window, MouseButton button, InputState state, ModifierKeys modifier)
-        {
-            if (state == InputState.Press)
+            else // No cooldown
             {
-                ImGui.GetIO().MouseDown[(int)button] = true;
-            }
-            else if (state == InputState.Release) {
-                ImGui.GetIO().MouseDown[(int)button] = false;
-            }
-
-            if (button == MouseButton.Right)
-            {
-                if (state == InputState.Press)
+                switch (e.Key)
                 {
-                    Glfw.GetCursorPosition(window, out double x, out double y);
-                    lastCursorPosition = new vec2((float)x, (float)y);
-                    isRightMouseButtonPressed = true;
 
-                    Glfw.SetInputMode(window, InputMode.Cursor, (int)CursorMode.Disabled);
-                }
-                else if (state == InputState.Release)
-                {
-                    isRightMouseButtonPressed = false;
-                    Glfw.SetInputMode(window, InputMode.Cursor, (int)CursorMode.Normal);
                 }
             }
-            else if (button == MouseButton.Middle)
+        }
+    }
+
+    private static void OnMouseWheel(MouseWheelEventArgs e)
+    {
+        controller.MouseScroll(e.Offset);
+
+        if (!ImGui.IsWindowHovered() && !progressiveRenderingActivated)
+        {
+            cameraPosition += cameraFront * -(float)e.OffsetY * 1.5f;
+        }
+
+    }
+
+    private static void OnMouseButtonDown(MouseButtonEventArgs e)
+    {
+        if (!ImGui.IsAnyItemHovered())
+        {
+            if (e.Button == MouseButton.Right)
             {
-                if (state == InputState.Press)
-                {
-                    Glfw.GetCursorPosition(window, out double x, out double y);
-                    lastCursorPosition = new vec2((float)x, (float)y);
-                    isMiddleMouseButtonPressed = true;
-                    Glfw.SetInputMode(window, InputMode.Cursor, (int)CursorMode.Disabled);
-                }
-                else if (state == InputState.Release) 
-                {
-                    isMiddleMouseButtonPressed= false;
-                    Glfw.SetInputMode(window, InputMode.Cursor, (int)CursorMode.Normal);
-                }
-            }else if (button == MouseButton.Left && state == InputState.Press) {
-                Glfw.GetCursorPosition(window, out double x, out double y);
-                lastCursorPosition = new vec2((float)x, (float)y);
+                lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
+                isRightMouseButtonPressed = true;
+
+                window.CursorVisible = false;
+                window.CursorGrabbed = true;
+
+            }
+            else if (e.Button == MouseButton.Middle)
+            {
+                lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
+                isMiddleMouseButtonPressed = true;
+
+                window.CursorVisible = false;
+                window.CursorGrabbed = true;
+
+            }
+            else if (e.Button == MouseButton.Left)
+            {
+                lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
 
                 int sphereHitIndex = RayCaster.CheckSphereIntersectionCoord(
-                    lastCursorPosition, 
-                    cameraPosition, 
-                    rayTracerShader, 
-                    new vec2(currentWidth, currentHeight), 
-                    fov, 
+                    lastCursorPosition,
+                    cameraPosition,
+                    rayTracerShader,
+                    new vec2(currentWidth, currentHeight),
+                    fov,
                     inverseViewMatrix
                 );
 
                 if (sphereHitIndex != int.MinValue)
                 {
-                    List<Sphere> removedElementList = rayTracerShader.GetSpheresList();
-                    removedElementList.RemoveAt(sphereHitIndex);
-
-                    rayTracerShader.SetSpheresList(removedElementList);
+                    //rayTracerShader.RemoveFromSphereList(sphereHitIndex);
                 }
 
             }
         }
+    }
 
-        static void CursorPositionCallback(Window window, double x, double y)
+    private static void OnMouseButtonUp(MouseButtonEventArgs e)
+    {
+        if (!ImGui.IsAnyItemHovered())
         {
-            if (isRightMouseButtonPressed)
+            if (e.Button == MouseButton.Right)
             {
-                RotateCamera(window);
+                isRightMouseButtonPressed = false;
+
+                window.CursorVisible = true;
+                window.CursorGrabbed = false;
             }
-            else if (isMiddleMouseButtonPressed)
+            else if (e.Button == MouseButton.Middle)
             {
-                MoveCamera(window);
+                isMiddleMouseButtonPressed = false;
+
+                window.CursorVisible = true;
+                window.CursorGrabbed = false;
             }
         }
-        #endregion
     }
+
+    private static void OnWindowResize(ResizeEventArgs e)
+    {
+        currentWidth = e.Width;
+        currentHeight = e.Height;
+
+        GL.Viewport(0, 0, currentWidth, currentHeight);
+        controller.WindowResized(currentWidth, currentHeight);
+
+        if (currentWidth != 0 && currentHeight != 0)
+        {
+            aspectRatio = (float)currentWidth / currentHeight;
+        }
+        else
+        {
+            aspectRatio = 1.1f;
+        }
+
+        GL.BindTexture(TextureTarget.Texture2D, currentFrameTexture);
+        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, currentWidth, currentHeight, 0, PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
+
+        // Update the size of the previous texture
+        GL.BindTexture(TextureTarget.Texture2D, previousFrameTexture);
+        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, currentWidth, currentHeight, 0, PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
+
+        // Update the size of the current framebuffer
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, currentFBO);
+        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, currentFrameTexture, 0);
+
+        // Update the size of the previous framebuffer
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, previousFBO);
+        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, previousFrameTexture, 0);
+
+        // Check framebuffer completeness
+        var status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
+        if (status != FramebufferErrorCode.FramebufferComplete)
+        {
+            Console.WriteLine("Framebuffer error: " + status);
+        }
+
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+    }
+    #endregion
+
+    #region Methods
+    private static void UpdateScene(Shader shader)
+    {
+        shader.SendSpheresToShader();
+    }
+
+    private static void UpdateUniforms(Shader shader)
+    {
+        // generic
+        // -------
+        shader.SetFloat("time", (float)GLFW.GetTime());
+        shader.SetVec2("resolution", new vec2(currentWidth, currentHeight));
+        if (currentHeight != 0 && currentWidth != 0)
+        {
+            shader.SetFloat("aspectRatio", aspectRatio);
+        }
+
+        // camera
+        // ------
+        shader.SetVec3("cameraPosition", cameraPosition);
+        shader.SetVec3("cameraDirection", cameraFront);
+        shader.SetVec3("cameraRight", cameraRight);
+        shader.SetFloat("fov", fov);
+
+        // shader settings
+        // ---------------
+        shader.SetInt("maxBounces", maxBounces);
+        shader.SetInt("numRaysPerPixel", numRaysPerPixel);
+        shader.SetFloat("ambientWeight", ambientWeight);
+        shader.SetBool("progressiveRenderingActivated", progressiveRenderingActivated);
+        shader.SetBool("raytracingActivated", isRaytracingActivated);
+
+        // matrices
+        // --------
+        inverseViewMatrix = glm.inverse(glm.lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp));
+        shader.SetMat4("viewMatrixInverse", inverseViewMatrix);
+    }
+
+    /*private static void PreviousFrameFBOSetup()
+    {
+        int previousFrameFBO;
+        GL.GenFramebuffers(1, out previousFrameFBO);
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, previousFrameFBO);
+
+
+    }*/
+
+    private static void RotateCamera()
+    {
+        vec2 currentCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
+        vec2 cursorOffset = currentCursorPosition - lastCursorPosition;
+        lastCursorPosition = currentCursorPosition;
+
+        float xOffset = -cursorOffset.x * mouseSensitivity;
+        float yOffset = -cursorOffset.y * mouseSensitivity;
+        float rotationSpeed = 1.0f;
+
+        cameraFront = glm.normalize(cameraFront);
+        cameraFront += (cameraRight * xOffset - cameraUp * yOffset) * rotationSpeed;
+        cameraFront = glm.normalize(cameraFront);
+    }
+
+    private static void MoveCamera()
+    {
+        vec2 currentCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
+        vec2 cursorOffset = currentCursorPosition - lastCursorPosition;
+        lastCursorPosition = currentCursorPosition;
+
+        float xOffset = cursorOffset.x;
+        float yOffset = cursorOffset.y;
+
+        float cameraSpeed = 0.1f;
+        vec3 tangent = glm.normalize(new vec3(cameraFront.z, 0.0f, -cameraFront.x));
+        vec3 bitangent = glm.cross(cameraFront, tangent);
+
+        vec3 movement = tangent * xOffset + bitangent * yOffset;
+        movement *= cameraSpeed;
+
+        cameraPosition += movement;
+    }
+    #endregion
 }
 

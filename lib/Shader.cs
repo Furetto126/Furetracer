@@ -143,6 +143,14 @@ namespace Lib
             spheresList.Add(sphere);
             SendSpheresToShader();
         }
+
+        public void RemoveFromSphereList(int index)
+        {
+            List<Sphere> removedElementList = GetSpheresList();
+            removedElementList.RemoveAt(index);
+
+            SetSpheresList(removedElementList);
+        }
       
         public List<Sphere> GetSpheresList()
         {

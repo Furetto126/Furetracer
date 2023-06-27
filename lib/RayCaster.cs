@@ -49,7 +49,7 @@ namespace Lib
 
             Console.WriteLine(pixelNDC);
 
-            vec3 rayTarget = new vec3(viewMatrixInverse * new vec4(pixelNDC.x, pixelNDC.y, tanFOV, 1.0f));
+            vec3 rayTarget = new vec3(viewMatrixInverse * new vec4(pixelNDC.x, pixelNDC.y, tanFOV, 0.0f));
             vec3 rayDirection = glm.normalize(rayTarget - rayOrigin);
 
             vec3[] spheresPosition = shader.GetSpheresList().Select(s => s.position).ToArray();

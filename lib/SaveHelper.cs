@@ -113,39 +113,8 @@ namespace Lib
         public static void ClearScene(Shader shader)
         {
             Console.WriteLine("Cleared Scene");
-            if (!File.Exists(savePath))
-            {
-                if (!Directory.Exists(directoryPath))
-                {
-                    Directory.CreateDirectory(directoryPath);
-                }
-                File.Create(savePath);
-            }
 
-            File.WriteAllText(savePath, string.Empty);
             shader.SetSpheresList(new List<Sphere>());
-
-            using StreamWriter writer = new(savePath);
-            using CsvWriter csv = new(writer, CultureInfo.InvariantCulture);
-
-            // Write header
-            csv.WriteField("Type");
-            csv.WriteField("Name");
-            csv.WriteField("PositionX");
-            csv.WriteField("PositionY");
-            csv.WriteField("PositionZ");
-            csv.WriteField("Radius");
-            csv.WriteField("ColorR");
-            csv.WriteField("ColorG");
-            csv.WriteField("ColorB");
-            csv.WriteField("EmissionColorR");
-            csv.WriteField("EmissionColorG");
-            csv.WriteField("EmissionColorB");
-            csv.WriteField("EmissionStrength");
-            csv.WriteField("Smoothness");
-            csv.WriteField("Glossiness");
-            csv.NextRecord();
-
         }
     }
 }

@@ -6,8 +6,12 @@ in vec2 TexCoord;
 // Render uniforms
 // ---------------
 uniform float time;
+uniform int framesFromRenderStart;
 uniform vec2 resolution;
 uniform float aspectRatio;
+
+uniform bool progressiveRenderingActivated;
+uniform sampler2D previousFrameTex;
 
 // Raytracing settings
 // -------------------
@@ -30,7 +34,6 @@ uniform mat4 viewMatrixInverse;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
 uniform mat4 projectionMatrixInverse;
-
 
 // Constants
 // ---------
@@ -104,11 +107,11 @@ vec3 randVector(inout uint seed) {
 }*/
 
 vec3 getEnvironmentLight(Ray ray){
-    vec3 skyColorHorizon = vec3(0.9, 1.0, 1.0);
-    vec3 skyColorZenith = vec3(0.4, 0.6, 1.0);
-    vec3 groundColor = vec3(0.4, 0.4, 0.4);
+    vec3 skyColorHorizon = vec3(0.78, 0.69, 0.63);
+    vec3 skyColorZenith = vec3(0.7, 0.84, 1.0);
+    vec3 groundColor = vec3(0.37, 0.33, 0.31);
 
-    float skyGradientT = pow(smoothstep(0.0, 0.4, ray.direction.y), 0.35);
+    float skyGradientT = pow(smoothstep(0.0, 0.7, ray.direction.y), 0.35);
     vec3 skyGradient = mix(skyColorHorizon, skyColorZenith, skyGradientT);
 
     float groundToSkyT = smoothstep(-0.01, 0.0, ray.direction.y);
@@ -189,11 +192,6 @@ vec4 pixelResult() {
     //if u change u will get cool effects, but not raytracing (for example if u base this on only time and pixel.y)
     uint seed = uint(((TexCoord.y * resolution.y) * resolution.x + (TexCoord.x * resolution.x)) + time * 76793); 
 
-    /*float tanFOV = 1.0 / tan(fov * 0.5 * PI / 180.0);
-    vec3 rayTarget = (viewMatrixInverse * vec4(TexCoord * 2.0 - 1.0, tanFOV, 1.0)).xyz;
-
-    vec3 rayDirection = normalize(rayTarget - cameraPosition);*/  
-
     float tanFOV = 1.0 / tan(fov * 0.5 * PI / 180.0);
     vec2 pixelNDC = (2.0 * gl_FragCoord.xy - resolution) / resolution.y;
 
@@ -226,5 +224,13 @@ vec4 pixelResult() {
 }
 
 void main() {
-    FragColor = pixelResult();
+    vec4 currentResult = pixelResult();
+
+    if (progressiveRenderingActivated) {
+        float weigth = 1.0 / (framesFromRenderStart + 1.0);
+        FragColor = texture(previousFrameTex, TexCoord) * (1.0 - weigth) + currentResult * weigth;
+    }else {
+        FragColor = currentResult;
+    }
+    
 }
