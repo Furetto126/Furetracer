@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Lib
+namespace RayTracer.lib.Generic
 {
     class FilteringStringWriter : TextWriter
     {
@@ -20,8 +20,9 @@ namespace Lib
             }
         }
 
-      
-        private static bool IsExcluded(string value) {
+
+        private static bool IsExcluded(string value)
+        {
             return value.Contains("imgui");
         }
     }

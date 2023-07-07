@@ -7,6 +7,8 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
+using RayTracer.lib;
+using RayTracer.lib.Generic;
 
 class main
 {
@@ -31,13 +33,13 @@ class main
         // Progressive rendering
         // -------------------------------
         public static bool progressiveRenderingActivated = false;
-        private static int currentFBO, previousFBO, currentFrameTexture, previousFrameTexture;
+        public static int currentFBO, previousFBO, currentFrameTexture, previousFrameTexture;
         private static int framesFromRendering = 0;
 
     // camera
     // ------
-    private static vec3 cameraPosition = new vec3(0.0f, 0.0f, 0.0f);
-    private static vec3 cameraFront = new vec3(0.0f, 0.0f, 1.0f);
+    public static vec3 cameraPosition = new vec3(0.0f, 0.0f, 0.0f);
+    public static vec3 cameraFront = new vec3(0.0f, 0.0f, 1.0f);
     private static vec3 cameraUp = new vec3(0.0f, 1.0f, 0.0f);
     private static vec3 cameraRight = new vec3(glm.normalize(glm.cross(cameraFront, cameraUp)));
 
@@ -51,6 +53,18 @@ class main
     private static bool isRightMouseButtonPressed = false;
     private static bool isMiddleMouseButtonPressed = false;
 
+    // ImGui stuff
+    // -----------
+    public static bool isAnyWindowHovered = false;
+    public static bool isAnyItemHovered = false;
+
+    public static bool isInspectorWindowHovered = false;
+    public static bool isConsoleWindowHovered = false;
+    public static bool isSceneWindowHovered = false;
+    public static bool isSettingsWindowHovered = false;
+
+    public static bool scenePopupOpen = false;
+
     // paths
     // -----
     private static readonly string rootDirectory = Common.GetRootDirectory();
@@ -59,8 +73,7 @@ class main
     // -------
     private static int VAO;
     private static float spamCooldown = 0.0f;
-    private static int currentWidth = WIDTH, currentHeight = HEIGHT;
-    private static int frames = 0;
+    public static int currentWidth = WIDTH, currentHeight = HEIGHT;
 
     public static StringWriter consoleOutput = new();
     private static FilteringStringWriter filteringStringWriter = new FilteringStringWriter(consoleOutput);
@@ -74,7 +87,7 @@ class main
     {
         NativeWindowSettings glfwOptions = new NativeWindowSettings
         {
-            Size = new OpenTK.Mathematics.Vector2i(WIDTH, HEIGHT),
+            Size = new Vector2i(WIDTH, HEIGHT),
             Title = "Raytracing Demo",
             API = ContextAPI.OpenGL,
             APIVersion = new Version(4, 5),
@@ -82,7 +95,7 @@ class main
         };
 
         window = new GameWindow(GameWindowSettings.Default, glfwOptions);
-        //window.WindowState = WindowState.Maximized;
+        window.WindowState = WindowState.Maximized;
 
         // Attach event handlers
         // ---------------------
@@ -152,13 +165,14 @@ class main
         // Initialize ImGui
         controller = new ImGuiController(WIDTH, HEIGHT);
 
+        rayTracerShader.LoadMesh(Path.Combine(Common.GetRootDirectory(), "models\\flower.obj"));
+        rayTracerShader.SendTrianglesToShader();
 
         Console.SetOut(filteringStringWriter);
     }
 
     private static void OnUpdateFrame(FrameEventArgs e)
     {
-        frames++;
         cameraRight = glm.normalize(glm.cross(cameraFront, cameraUp));
 
         if (!progressiveRenderingActivated)
@@ -172,6 +186,9 @@ class main
                 MoveCamera();
             }
         }
+
+        isAnyItemHovered = ImGui.IsAnyItemHovered();
+        isAnyWindowHovered = isInspectorWindowHovered || isConsoleWindowHovered || isSceneWindowHovered || isSettingsWindowHovered;
 
         UpdateUniforms(rayTracerShader);
         UpdateScene(rayTracerShader);
@@ -331,7 +348,7 @@ class main
     {
         controller.MouseScroll(e.Offset);
 
-        if (!ImGui.IsWindowHovered() && !progressiveRenderingActivated)
+        if (!isAnyWindowHovered && !progressiveRenderingActivated)
         {
             cameraPosition += cameraFront * -(float)e.OffsetY * 1.5f;
         }
@@ -339,52 +356,79 @@ class main
     }
 
     private static void OnMouseButtonDown(MouseButtonEventArgs e)
-    {
-        if (!ImGui.IsAnyItemHovered())
+    { 
+        switch (e.Button)
         {
-            if (e.Button == MouseButton.Right)
+            case MouseButton.Right:
             {
-                lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
-                isRightMouseButtonPressed = true;
-
-                window.CursorVisible = false;
-                window.CursorGrabbed = true;
-
-            }
-            else if (e.Button == MouseButton.Middle)
-            {
-                lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
-                isMiddleMouseButtonPressed = true;
-
-                window.CursorVisible = false;
-                window.CursorGrabbed = true;
-
-            }
-            else if (e.Button == MouseButton.Left)
-            {
-                lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
-
-                int sphereHitIndex = RayCaster.CheckSphereIntersectionCoord(
-                    lastCursorPosition,
-                    cameraPosition,
-                    rayTracerShader,
-                    new vec2(currentWidth, currentHeight),
-                    fov,
-                    inverseViewMatrix
-                );
-
-                if (sphereHitIndex != int.MinValue)
+                if (!isAnyWindowHovered && !progressiveRenderingActivated)
                 {
-                    //rayTracerShader.RemoveFromSphereList(sphereHitIndex);
+                    lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
+                    isRightMouseButtonPressed = true;
+
+                    window.CursorVisible = false;
+                    window.CursorGrabbed = true;
+                }
+                else if (isSceneWindowHovered && !isAnyItemHovered)
+                {
+                    scenePopupOpen = true;
                 }
 
+                break;
             }
+
+            case MouseButton.Left:
+            {
+                if (!isAnyWindowHovered && !progressiveRenderingActivated)
+                {
+                    lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
+
+                    int sphereHitIndex = RayCaster.CheckSphereIntersectionCoord(
+                        lastCursorPosition,
+                        cameraPosition,
+                        rayTracerShader,
+                        new vec2(currentWidth, currentHeight),
+                        fov,
+                        inverseViewMatrix
+                    );
+
+                    if (sphereHitIndex != int.MinValue)
+                    {
+                        //rayTracerShader.RemoveFromSphereList(sphereHitIndex);
+                    }
+                }
+
+                scenePopupOpen = false;
+
+                break;
+            }
+
+            case MouseButton.Middle:
+            {
+                if (!isAnyWindowHovered && !progressiveRenderingActivated)
+                {
+                    lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
+                    isMiddleMouseButtonPressed = true;
+
+                    window.CursorVisible = false;
+                    window.CursorGrabbed = true;
+
+                }
+
+                scenePopupOpen = false;
+
+                break;
+            }
+
         }
+
+
+
     }
 
     private static void OnMouseButtonUp(MouseButtonEventArgs e)
     {
-        if (!ImGui.IsAnyItemHovered())
+        if (!isAnyWindowHovered && !progressiveRenderingActivated)
         {
             if (e.Button == MouseButton.Right)
             {
@@ -483,15 +527,6 @@ class main
         inverseViewMatrix = glm.inverse(glm.lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp));
         shader.SetMat4("viewMatrixInverse", inverseViewMatrix);
     }
-
-    /*private static void PreviousFrameFBOSetup()
-    {
-        int previousFrameFBO;
-        GL.GenFramebuffers(1, out previousFrameFBO);
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, previousFrameFBO);
-
-
-    }*/
 
     private static void RotateCamera()
     {

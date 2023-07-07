@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using GlmNet;
 
-namespace Lib
+namespace RayTracer.lib.Generic
 {
     class Common
     {

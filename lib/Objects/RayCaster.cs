@@ -47,8 +47,6 @@ namespace Lib
             float tanFOV = 1.0f / MathF.Tan(fov * 0.5f * PI / 180.0f);
             vec2 pixelNDC = (2.0f * cursorCoord - resolution) / resolution.y;
 
-            Console.WriteLine(pixelNDC);
-
             vec3 rayTarget = new vec3(viewMatrixInverse * new vec4(pixelNDC.x, pixelNDC.y, tanFOV, 0.0f));
             vec3 rayDirection = glm.normalize(rayTarget - rayOrigin);
 

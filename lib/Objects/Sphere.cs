@@ -1,5 +1,4 @@
 ﻿using GlmNet;
-using System.Runtime.InteropServices;
 
 namespace Lib 
 {
@@ -22,6 +21,17 @@ namespace Lib
             this.emissionStrength = emissionStrength;
             this.smoothness = smoothness;
             this.glossiness = glossiness;
+        }
+
+        public Sphere()
+        {
+            position = new vec3(0.0f);
+            radius = 1.0f;
+            color = new vec3(0.7f);
+            emissionColor = new vec3(0.0f);
+            emissionStrength = 0.0f;
+            smoothness = 1.0f;
+            glossiness = 1.0f;
         }
     }
 }

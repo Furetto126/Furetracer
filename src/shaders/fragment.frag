@@ -107,9 +107,9 @@ vec3 randVector(inout uint seed) {
 }*/
 
 vec3 getEnvironmentLight(Ray ray){
-    vec3 skyColorHorizon = vec3(0.78, 0.69, 0.63);
-    vec3 skyColorZenith = vec3(0.7, 0.84, 1.0);
-    vec3 groundColor = vec3(0.37, 0.33, 0.31);
+    vec3 skyColorHorizon = vec3(0.9, 1.0, 1.0);
+    vec3 skyColorZenith = vec3(0.37, 0.47, 0.61);
+    vec3 groundColor = vec3(0.41, 0.39, 0.37);
 
     float skyGradientT = pow(smoothstep(0.0, 0.7, ray.direction.y), 0.35);
     vec3 skyGradient = mix(skyColorHorizon, skyColorZenith, skyGradientT);
@@ -122,7 +122,6 @@ vec3 getEnvironmentLight(Ray ray){
 Hit sphereIntersection(Ray ray, Sphere sphere) {
     Hit sphereHit;
     sphereHit.hitRegistered = false;
-    sphereHit.hitDistance = infinity;
 
     vec3 rayOrigin = ray.origin - sphere.position;
 
@@ -134,8 +133,6 @@ Hit sphereIntersection(Ray ray, Sphere sphere) {
     if (discriminant >= 0.0) {
         float dst = (-b - sqrt(discriminant)) / (2.0 * a);
         if (dst >= 0.0) {
-            Material hitMaterial;
-
             sphereHit.hitRegistered = true;
             sphereHit.hitDistance = dst;
             sphereHit.hitPoint = ray.origin + ray.direction * dst;
@@ -143,6 +140,51 @@ Hit sphereIntersection(Ray ray, Sphere sphere) {
         }
     }
     return sphereHit;
+}
+
+Hit triangleIntersection(Ray ray, vec3 v0, vec3 v1, vec3 v2) {
+    Hit triangleHit;
+    const float EPSILON = 0.0;
+
+    vec3 edge1 = v1 - v0;
+    vec3 edge2 = v2 - v0;
+
+    vec3 pvec = cross(ray.direction, edge2);
+    float det = dot(edge1, pvec);
+
+    if (abs(det) < EPSILON) {
+        triangleHit.hitRegistered = false;
+        triangleHit.material.color = vec3(0.0);
+        return triangleHit;
+    }
+
+    float invDet = 1.0 / det;
+
+    vec3 tvec = ray.origin - v0;
+    float u = dot(tvec, pvec) * invDet;
+
+    if (u < 0.0 || u > 1.0) {
+        triangleHit.hitRegistered = false;
+        triangleHit.material.color = vec3(0.0);
+        return triangleHit;
+    }
+
+    vec3 qvec = cross(tvec, edge1);
+    float v = dot(ray.direction, qvec) * invDet;
+
+    if (v < 0.0 || (u + v) > 1.0) {
+        triangleHit.hitRegistered = false;
+        triangleHit.material.color = vec3(0.0);
+        return triangleHit;
+    }
+
+    float t = dot(edge2, qvec) * invDet;
+    
+    triangleHit.hitRegistered = true;
+    triangleHit.material.color = vec3(0.0, 1.0, 0.0);
+    triangleHit.hitDistance = t;
+    triangleHit.hitPoint = ray.origin + ray.direction * t;
+    triangleHit.hitNormal = normalize(cross(edge1, edge2));
 }
 
 Hit objectsDepthTest(Ray ray) {
@@ -198,27 +240,38 @@ vec4 pixelResult() {
     vec3 rayTarget = (viewMatrixInverse * vec4(pixelNDC, tanFOV, 1.0)).xyz;
     vec3 rayDirection = normalize(rayTarget - cameraPosition);
 
+    Ray ray;
+    ray.origin = cameraPosition;
+    ray.direction = rayDirection;
+
     vec4 final;
     
     if (raytracingActivated) {
         vec3 totalInLight = vec3(0.0);
 
         for (int i = 0; i < numRaysPerPixel; i++) {
-            Ray ray;
+            totalInLight += traceRay(ray, seed);
+
             ray.origin = cameraPosition;
             ray.direction = rayDirection;
-
-            totalInLight += traceRay(ray, seed);
         }
+
         final = vec4(totalInLight / float(numRaysPerPixel), 1.0);
     }else {
-        Ray ray;
-        ray.origin = cameraPosition;
-        ray.direction = rayDirection;
-
         Hit objectHit = objectsDepthTest(ray);
         final = objectHit.hitRegistered ? vec4(objectHit.material.color, 1.0) : vec4(getEnvironmentLight(ray), 1.0);
     } 
+
+    vec3 v0 = vec3(-1000.0, -1000.0, 1000.0);
+    vec3 v1 = vec3(1000.0, -1000.0, 1000.0);
+    vec3 v2 = vec3(0.0, 1000.0, 1000.0);
+
+    //final = vec4(triangleIntersection(ray, v0, v1, v2).material.color, 1.0);
+    Sphere sphere;
+    sphere.position = vec3(100.0);
+    sphere.radius = 100.0;
+    //final = sphereIntersection(ray, sphere).hitRegistered ? vec4(1.0) : vec4(0.0);
+    //final = triangleIntersection(ray, v0, v1, v2).hitRegistered ? vec4(1.0) : vec4(0.0);
 
     return final;
 }
@@ -232,5 +285,7 @@ void main() {
     }else {
         FragColor = currentResult;
     }
+
+    //FragColor = currentResult;
     
 }

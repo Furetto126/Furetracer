@@ -1,6 +1,7 @@
 ﻿using GlmNet;
 using CsvHelper;
 using System.Globalization;
+using RayTracer.lib.Generic;
 
 namespace Lib
 {

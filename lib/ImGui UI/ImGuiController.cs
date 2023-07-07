@@ -7,7 +7,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Diagnostics;
 using ErrorCode = OpenTK.Graphics.OpenGL4.ErrorCode;
 
-namespace Lib
+namespace RayTracer.lib
 {
     public class ImGuiController : IDisposable
     {
@@ -45,7 +45,7 @@ namespace Lib
             int major = GL.GetInteger(GetPName.MajorVersion);
             int minor = GL.GetInteger(GetPName.MinorVersion);
 
-            KHRDebugAvailable = (major == 4 && minor >= 3) || IsExtensionSupported("KHR_debug");
+            KHRDebugAvailable = major == 4 && minor >= 3 || IsExtensionSupported("KHR_debug");
 
             IntPtr context = ImGui.CreateContext();
             ImGui.SetCurrentContext(context);

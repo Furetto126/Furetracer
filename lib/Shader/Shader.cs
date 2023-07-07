@@ -9,6 +9,7 @@ namespace Lib
     {
         int ID;
         List<Sphere> spheresList = new();
+        List<Triangle> trianglesList = ModelLoader.GetSceneTriangles();
 
         public struct Material
         {
@@ -26,6 +27,20 @@ namespace Lib
         {
             public vec3 position;           //needs 16 bytes of alignment
             public float radius;
+
+            public Material material;
+        }
+
+        public struct TriangleData
+        {
+            public vec3 v0;
+            public float pad0;
+
+            public vec3 v1;
+            public float pad1;   // Lots of padding because i don't even want to risk getting other errors and bugs
+
+            public vec3 v2;
+            public float pad2;
 
             public Material material;
         }
@@ -138,7 +153,6 @@ namespace Lib
 
         #region Spheres
         public void AddToSphereList(Sphere sphere)
-
         {
             spheresList.Add(sphere);
             SendSpheresToShader();
@@ -188,6 +202,54 @@ namespace Lib
             GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, bindingPoint, sphereBuffer);
             GL.BufferData(BufferTarget.ShaderStorageBuffer, bufferSize, sphereDataArray, BufferUsageHint.DynamicDraw);
         }
+        #endregion
+
+        #region Triangles
+
+        public void LoadMesh(string path)
+        {
+            ModelLoader.LoadModel(path);
+            trianglesList = ModelLoader.GetSceneTriangles();
+        }
+
+        public List<Triangle> GetTrianglesList()
+        {
+            return trianglesList;
+        }
+
+        public void SetTrianglesList(List<Triangle> triangle)
+        {
+            trianglesList = triangle;
+        }
+
+        public void SendTrianglesToShader()
+        {
+            SetInt("numTriangles", trianglesList.ToArray().Length);
+
+            TriangleData[] triangleDataArray = trianglesList.Select(t => new TriangleData
+            {
+                v0 = t.v0,
+                v1 = t.v1,
+                v2 = t.v2,
+                material = new Material
+                {
+                    color = t.color,
+                    smoothness = t.smoothness,
+
+                    emissionColor = t.emissionColor,
+                    emissionStrength = t.emissionStrength,
+
+                    glossiness = t.glossiness
+                }
+            }).ToArray();
+
+            int bindingPoint = 1;
+            int bufferSize = Marshal.SizeOf(typeof(TriangleData)) * triangleDataArray.Length;
+            GL.GenBuffers(1, out int sphereBuffer);
+            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, bindingPoint, sphereBuffer);
+            GL.BufferData(BufferTarget.ShaderStorageBuffer, bufferSize, triangleDataArray, BufferUsageHint.DynamicDraw);
+        }
+
         #endregion
 
         public int GetProgramShader()

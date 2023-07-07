@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
 	<PublishSingleFile>true</PublishSingleFile>
     <RootNamespace>RayTracer</RootNamespace>
@@ -12,11 +12,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AssimpNet" Version="4.1.0" />
     <PackageReference Include="CsvHelper" Version="30.0.1" />
     <PackageReference Include="GlmNet" Version="0.7.0" />
-    <PackageReference Include="ImGui.NET" Version="1.89.5.2" />
+    <PackageReference Include="ImGui.NET" Version="1.89.7.1" />
     <PackageReference Include="OpenTK" Version="4.7.7" />
     <PackageReference Include="OpenTK.redist.glfw" Version="3.3.8.30" />
+    <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0029" />
+    <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.0-alpha0029" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.0.1" />
     <PackageReference Include="StbImageSharp" Version="2.27.13" />
   </ItemGroup>
 
