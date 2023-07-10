@@ -7,8 +7,6 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
-using RayTracer.lib;
-using RayTracer.lib.Generic;
 
 class main
 {
@@ -258,11 +256,16 @@ class main
         if (e.Key == Keys.Backspace && ImGui.GetIO().WantTextInput)
         {
             ImGui.GetIO().AddInputCharacter('\b');
-        }else
-        {
-            controller.PressChar((char)e.Key);
         }
-        
+        else
+        {
+            char keyChar = Common.GetCharFromKeyCode(e.Key);
+            if (keyChar != '\0')
+            {
+                controller.PressChar(keyChar);
+            }
+        }
+
 
         if (ctrlPressed)
         {
@@ -313,23 +316,6 @@ class main
                         // Therefore, the following command ensures that the program is closed in an elegant and orderly manner.
                         // https://cdn.discordapp.com/attachments/870272324111323237/1106268518783144088/image.png
                         window.Close();
-                        break;
-                    }
-
-                    case Keys.V:
-                    {
-                        spamCooldown = (float)GLFW.GetTime();
-
-                        if (colorTest == 0)
-                        {
-                            rayTracerShader.AddToSphereList(new Sphere(cameraPosition, 100.0f, new vec3(0.0f), new vec3(1.0f), 1.0f, 0.0f, 0.0f));
-                            colorTest = 1;
-                        }
-                        else
-                        {
-                            float smoothnessAndGlossiness = (float)new Random().NextDouble();
-                            rayTracerShader.AddToSphereList(new Sphere(cameraPosition, 1.0f, new vec3((float)new Random().NextDouble(), (float)new Random().NextDouble(), (float)new Random().NextDouble()), new vec3((float)new Random().NextDouble(), (float)new Random().NextDouble(), (float)new Random().NextDouble()), 0.0f, smoothnessAndGlossiness, smoothnessAndGlossiness));
-                        }
                         break;
                     }
                 }

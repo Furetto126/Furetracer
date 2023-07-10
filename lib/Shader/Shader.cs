@@ -9,6 +9,7 @@ namespace Lib
     {
         int ID;
         List<Sphere> spheresList = new();
+        List<Model> modelsList = new();
         List<Triangle> trianglesList = ModelLoader.GetSceneTriangles();
 
         public struct Material

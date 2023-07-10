@@ -7,6 +7,7 @@ namespace Lib
 {
     class ModelLoader
     {
+
         private static List<Triangle> trianglesList = new List<Triangle>(); 
 
         public static void LoadModel(string path) {

@@ -7,7 +7,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using System.Diagnostics;
 using ErrorCode = OpenTK.Graphics.OpenGL4.ErrorCode;
 
-namespace RayTracer.lib
+namespace Lib
 {
     public class ImGuiController : IDisposable
     {

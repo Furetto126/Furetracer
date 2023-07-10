@@ -3,11 +3,12 @@ using GlmNet;
 using System.Numerics;
 using Lib;
 
-namespace RayTracer.lib
+namespace Lib
 {
     class ImGuiHandler
     {
         private static int inspectoredElement = int.MinValue;
+        private static string commandSent = "";
         private static string saveTarget = "";
         private static bool isRendering = false;
         private static int renderTime = 5;
@@ -136,7 +137,25 @@ namespace RayTracer.lib
             ImGui.Begin("Bottom Panel", bottomPanelFlags);
             main.isConsoleWindowHovered = ImGui.IsWindowHovered();
 
+            ImGui.BeginChild("Console output", new Vector2(bottomPanelSize.X, bottomPanelSize.Y - 42.0f), true, ImGuiWindowFlags.AlwaysVerticalScrollbar);
+
             ImGui.Text(main.consoleOutput.ToString());
+            ImGui.SetScrollHereY(1.0f);
+
+            ImGui.EndChild();
+
+            if (ImGui.InputText("Command line", ref commandSent, 100, ImGuiInputTextFlags.EnterReturnsTrue) && !commandSent.Replace(" ", "").Equals(""))
+            {
+                CommandParser parser = new CommandParser();
+                parser.ParseAndExecute(commandSent, shader);
+
+                commandSent = "";
+                ImGui.SetItemDefaultFocus();
+            }
+
+            if (main.isConsoleWindowHovered && main.isAnyItemHovered) {
+                ImGui.SetKeyboardFocusHere();
+            }
 
             ImGui.End();
 

@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace RayTracer.lib.Generic
+namespace Lib
 {
     class FilteringStringWriter : TextWriter
     {
@@ -17,6 +17,9 @@ namespace RayTracer.lib.Generic
             if (!IsExcluded(value))
             {
                 writer.Write(value);
+            }
+            else { 
+                writer.Write(""); 
             }
         }
 
