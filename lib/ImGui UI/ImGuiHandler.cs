@@ -1,13 +1,12 @@
 ﻿using ImGuiNET;
 using GlmNet;
 using System.Numerics;
-using Lib;
 
 namespace Lib
 {
     class ImGuiHandler
     {
-        private static int inspectoredElement = int.MinValue;
+        private static int inspectoredElement = -1;
         private static string commandSent = "";
         private static string saveTarget = "";
         private static bool isRendering = false;
@@ -31,13 +30,13 @@ namespace Lib
             ImGui.Begin("Right Panel", rightPanelFlags);
             main.isInspectorWindowHovered = ImGui.IsWindowHovered();
 
-            if (inspectoredElement != int.MinValue) // A sphere is selected
+            if (inspectoredElement != -1) // A sphere is selected
             {
                 Sphere currentSphere = shader.GetSpheresList().ToArray()[inspectoredElement];
 
                 Vector3 position = new Vector3(currentSphere.position.x, currentSphere.position.y, currentSphere.position.z);
-                Vector3 color = new Vector3(currentSphere.color.x, currentSphere.color.y, currentSphere.color.z);
-                Vector3 emissionColor = new Vector3(currentSphere.emissionColor.x, currentSphere.emissionColor.y, currentSphere.emissionColor.z);
+                Vector3 color = new Vector3(currentSphere.material.color.x, currentSphere.material.color.y, currentSphere.material.color.z);
+                Vector3 emissionColor = new Vector3(currentSphere.material.emissionColor.x, currentSphere.material.emissionColor.y, currentSphere.material.emissionColor.z);
 
                 // Set ImGui elements for the inspector window
                 // -------------------------------------------
@@ -63,14 +62,14 @@ namespace Lib
                 ImGui.InputFloat("Radius", ref currentSphere.radius);
                 ImGui.ColorEdit3("Color", ref color);
                 ImGui.ColorEdit3("Emission Color", ref emissionColor);
-                ImGui.InputFloat("Emission strength", ref currentSphere.emissionStrength);
-                ImGui.InputFloat("Smoothness", ref currentSphere.smoothness);
-                ImGui.InputFloat("Glossiness", ref currentSphere.glossiness);
+                ImGui.InputFloat("Emission strength", ref currentSphere.material.emissionStrength);
+                ImGui.InputFloat("Smoothness", ref currentSphere.material.smoothness);
+                ImGui.InputFloat("Glossiness", ref currentSphere.material.glossiness);
 
                 // Set vector attributes
                 currentSphere.position = new vec3(position.X, position.Y, position.Z);
-                currentSphere.color = new vec3(color.X, color.Y, color.Z);
-                currentSphere.emissionColor = new vec3(emissionColor.X, emissionColor.Y, emissionColor.Z);
+                currentSphere.material.color = new vec3(color.X, color.Y, color.Z);
+                currentSphere.material.emissionColor = new vec3(emissionColor.X, emissionColor.Y, emissionColor.Z);
             }
 
             ImGui.End();
@@ -174,20 +173,33 @@ namespace Lib
 
             for (int i = 0; i < shader.GetSpheresList().Count; i++)
             {
-                if (ImGui.MenuItem("Sphere" + i))
+                if (ImGui.Selectable("Sphere" + i))
                 {
                     inspectoredElement = i;
                 }
+
+                if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                {
+                    ImGui.OpenPopup("Edit object " + i);
+                }
+
+                if (ImGui.BeginPopup("Edit object " + i))
+                {
+                    if (ImGui.MenuItem("Delete")) {
+                        inspectoredElement = -1;
+                        shader.RemoveFromSphereList(i);
+                        ImGui.CloseCurrentPopup();
+                    }
+                    if (ImGui.MenuItem("Duplicate"))
+                    {
+                        shader.AddToSphereList(new Sphere(shader.GetSpheresList()[i]));
+                        ImGui.CloseCurrentPopup();
+                    }
+
+                    ImGui.EndPopup();
+                }
             }
 
-            ScenePopup(shader);
-
-            ImGui.End();
-            ImGui.PopStyleVar();
-        }
-
-        public static void ScenePopup(Shader shader)
-        {
             if (main.scenePopupOpen)
             {
                 ImGui.OpenPopup("Scene popup");
@@ -207,6 +219,9 @@ namespace Lib
 
                 ImGui.EndPopup();
             }
+
+            ImGui.End();
+            ImGui.PopStyleVar();
         }
 
         /*private static void RenderImage()

@@ -52,17 +52,17 @@ namespace Lib
                 csv.WriteField(sphere.position.z);
                 csv.WriteField(sphere.radius);
 
-                csv.WriteField(sphere.color.x);
-                csv.WriteField(sphere.color.y);
-                csv.WriteField(sphere.color.z);
+                csv.WriteField(sphere.material.color.x);
+                csv.WriteField(sphere.material.color.y);
+                csv.WriteField(sphere.material.color.z);
 
-                csv.WriteField(sphere.emissionColor.x);
-                csv.WriteField(sphere.emissionColor.y);
-                csv.WriteField(sphere.emissionColor.z);
+                csv.WriteField(sphere.material.emissionColor.x);
+                csv.WriteField(sphere.material.emissionColor.y);
+                csv.WriteField(sphere.material.emissionColor.z);
 
-                csv.WriteField(sphere.emissionStrength);
-                csv.WriteField(sphere.smoothness);
-                csv.WriteField(sphere.glossiness);
+                csv.WriteField(sphere.material.emissionStrength);
+                csv.WriteField(sphere.material.smoothness);
+                csv.WriteField(sphere.material.glossiness);
 
                 csv.NextRecord();
             }
@@ -89,22 +89,22 @@ namespace Lib
             {
                 switch (csv.GetField<string>("Type"))
                 {
-                    case "Sphere":
-                        {
-                            Sphere sphere = new(
-                                    new vec3(csv.GetField<float>("PositionX"), csv.GetField<float>("PositionY"), csv.GetField<float>("PositionZ")),
-                                    csv.GetField<float>("Radius"),
-                                    new vec3(csv.GetField<float>("ColorR"), csv.GetField<float>("ColorG"), csv.GetField<float>("ColorB")),
-                                    new vec3(csv.GetField<float>("EmissionColorR"), csv.GetField<float>("EmissionColorG"), csv.GetField<float>("EmissionColorB")),
-                                    csv.GetField<float>("EmissionStrength"),
-                                    csv.GetField<float>("Smoothness"),
-                                    csv.GetField<float>("Glossiness")
-                                );
-                            shader.AddToSphereList(sphere);
-                            Console.WriteLine("Loaded " + csv.GetField<string>("Name"));
+                    case "Sphere": {
+                        Sphere sphere = new(
+                            csv.GetField<string>("Name"),
+                            new vec3(csv.GetField<float>("PositionX"), csv.GetField<float>("PositionY"), csv.GetField<float>("PositionZ")),
+                            csv.GetField<float>("Radius"),
+                            new vec3(csv.GetField<float>("ColorR"), csv.GetField<float>("ColorG"), csv.GetField<float>("ColorB")),
+                            new vec3(csv.GetField<float>("EmissionColorR"), csv.GetField<float>("EmissionColorG"), csv.GetField<float>("EmissionColorB")),
+                            csv.GetField<float>("EmissionStrength"),
+                            csv.GetField<float>("Smoothness"),
+                            csv.GetField<float>("Glossiness")
+                        );
+                        shader.AddToSphereList(sphere);
+                        Console.WriteLine("Loaded " + csv.GetField<string>("Name"));
                             
-                            break;
-                        }    
+                        break;
+                    }    
                     // aggiungi qualcos altro bho emoji35
                 }
             }

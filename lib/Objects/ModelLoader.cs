@@ -7,12 +7,11 @@ namespace Lib
 {
     class ModelLoader
     {
-
         private static List<Triangle> trianglesList = new List<Triangle>(); 
 
-        public static void LoadModel(string path) {
+        public static Model LoadModel(string path) {
 
-            if (!File.Exists(path)) { Console.WriteLine("Model \"" + path + "\" not found!");  return;  }
+            if (!File.Exists(path)) { Console.WriteLine("Model \"" + path + "\" not found!");  return new Model("", new List<Triangle>());  }
 
             AssimpContext importer = new AssimpContext();
             importer.SetConfig(new NormalSmoothingAngleConfig(66.0f));
@@ -31,7 +30,7 @@ namespace Lib
                     }
 
                     int materialIndex = mesh.MaterialIndex;
-                    Material material = modelScene.Materials[materialIndex];
+                    Assimp.Material material = modelScene.Materials[materialIndex];
 
                     Color4D diffuseColor = material.ColorDiffuse;
 
@@ -55,10 +54,11 @@ namespace Lib
                     trianglesList.Add(triangle);
                 }
             }
-
+            Model model = new Model(Path.GetFileName(path), trianglesList);
+            trianglesList.Clear();
             importer.Dispose();
 
-            
+            return model;
         }
 
         public static List<Triangle> GetSceneTriangles()

@@ -10,9 +10,8 @@ namespace Lib
         int ID;
         List<Sphere> spheresList = new();
         List<Model> modelsList = new();
-        List<Triangle> trianglesList = ModelLoader.GetSceneTriangles();
 
-        public struct Material
+        public struct MaterialData
         {
             public vec3 color;              //needs 16 bytes of alignment
             public float smoothness;
@@ -29,7 +28,7 @@ namespace Lib
             public vec3 position;           //needs 16 bytes of alignment
             public float radius;
 
-            public Material material;
+            public MaterialData material;
         }
 
         public struct TriangleData
@@ -43,7 +42,7 @@ namespace Lib
             public vec3 v2;
             public float pad2;
 
-            public Material material;
+            public MaterialData material;
         }
 
         public Shader(string vertexPath, string fragmentPath)
@@ -185,15 +184,15 @@ namespace Lib
             {
                 position = s.position,
                 radius = s.radius,
-                material = new Material
+                material = new MaterialData
                 {
-                    color = s.color,
-                    smoothness = s.smoothness,
+                    color = s.material.color,
+                    smoothness = s.material.smoothness,
 
-                    emissionColor = s.emissionColor,
-                    emissionStrength = s.emissionStrength,
+                    emissionColor = s.material.emissionColor,
+                    emissionStrength = s.material.emissionStrength,
                     
-                    glossiness = s.glossiness
+                    glossiness = s.material.glossiness
                 }
             }).ToArray();
 
@@ -205,26 +204,34 @@ namespace Lib
         }
         #endregion
 
-        #region Triangles
+        #region Models
 
         public void LoadMesh(string path)
         {
-            ModelLoader.LoadModel(path);
-            trianglesList = ModelLoader.GetSceneTriangles();
+            modelsList.Add(ModelLoader.LoadModel(path));
         }
 
-        public List<Triangle> GetTrianglesList()
+        public List<Model> GetModelsList()
         {
-            return trianglesList;
+            return modelsList;
         }
 
-        public void SetTrianglesList(List<Triangle> triangle)
+        public void SetModelsList(List<Model> models)
         {
-            trianglesList = triangle;
+            modelsList = models;
         }
 
         public void SendTrianglesToShader()
         {
+            List<Triangle> trianglesList = new List<Triangle>();
+
+            foreach (Model model in modelsList) { 
+                foreach (Triangle triangle in model.Triangles)
+                {
+                    trianglesList.Add(triangle);
+                }
+            }
+
             SetInt("numTriangles", trianglesList.ToArray().Length);
 
             TriangleData[] triangleDataArray = trianglesList.Select(t => new TriangleData
@@ -232,15 +239,15 @@ namespace Lib
                 v0 = t.v0,
                 v1 = t.v1,
                 v2 = t.v2,
-                material = new Material
+                material = new MaterialData
                 {
-                    color = t.color,
-                    smoothness = t.smoothness,
+                    color = t.material.color,
+                    smoothness = t.material.smoothness,
 
-                    emissionColor = t.emissionColor,
-                    emissionStrength = t.emissionStrength,
+                    emissionColor = t.material.emissionColor,
+                    emissionStrength = t.material.emissionStrength,
 
-                    glossiness = t.glossiness
+                    glossiness = t.material.glossiness
                 }
             }).ToArray();
 
