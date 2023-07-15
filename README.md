@@ -18,3 +18,5 @@ Implement an acceleration structure to optimize ray intersection search.
 ## Examples
 
 ![A simple scene rendered in 3 seconds on my mid-tier PC](https://cdn.discordapp.com/attachments/900407826755772437/1123351978890756228/image.png)
+
+![A scene with an intense light](https://cdn.discordapp.com/attachments/1082365802709274756/1128246567074275338/image.png)
