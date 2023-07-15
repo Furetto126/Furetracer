@@ -74,5 +74,22 @@ namespace Lib
 
             return '\0';
         }
+
+        public static string GiveDefaultFreeName(RaytracingScene scene, string name)
+        {
+            int suffix = 1;
+
+            while (scene.ExistsInScene(name + suffix))
+            {
+                suffix++;
+            }
+
+            if (suffix == 1)
+            {
+                return name;
+            }
+
+            return name + suffix;
+        }
     }
 }

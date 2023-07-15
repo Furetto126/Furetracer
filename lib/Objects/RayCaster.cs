@@ -41,7 +41,7 @@ namespace Lib
             return sphereHit;
         }
 
-        public static int CheckSphereIntersectionCoord(vec2 cursorCoord, vec3 rayOrigin, Shader shader, vec2 resolution, float fov, mat4 viewMatrixInverse)
+        public static int CheckSphereIntersectionCoord(vec2 cursorCoord, vec3 rayOrigin, RaytracingScene scene, vec2 resolution, float fov, mat4 viewMatrixInverse)
         {
             // Initializes a ray just like in the shader
             float tanFOV = 1.0f / MathF.Tan(fov * 0.5f * PI / 180.0f);
@@ -50,8 +50,8 @@ namespace Lib
             vec3 rayTarget = new vec3(viewMatrixInverse * new vec4(pixelNDC.x, pixelNDC.y, tanFOV, 0.0f));
             vec3 rayDirection = glm.normalize(rayTarget - rayOrigin);
 
-            vec3[] spheresPosition = shader.GetSpheresList().Select(s => s.position).ToArray();
-            float[] spheresRadius = shader.GetSpheresList().Select(s => s.radius).ToArray();
+            vec3[] spheresPosition = scene.GetSpheresInScene().Select(s => s.position).ToArray();
+            float[] spheresRadius = scene.GetSpheresInScene().Select(s => s.radius).ToArray();
 
             Hit closestHit = new Hit(false, float.MaxValue);
             int sphereIndex = int.MinValue;

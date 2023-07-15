@@ -1,13 +1,16 @@
-﻿namespace Lib
+﻿using GlmNet;
+
+namespace Lib
 {
     class Model : Object
     {
-        public List<Triangle> Triangles { get; set; }
-        public override string DisplayName { get; protected set; }
+        public List<Triangle> triangles;
+        public float size = 1.0f;
+        public override string DisplayName { get; set; }
 
         public Model(string name, List<Triangle> triangles) { 
             DisplayName = name;
-            Triangles = triangles;
+            this.triangles = triangles;
         }
     }
 }

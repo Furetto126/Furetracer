@@ -3,13 +3,14 @@
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL4;
 
-namespace Lib
-{
+namespace Lib {
+
     class Shader
     {
+        List<Sphere> previousSpheresList = new();
+        List<Model> previousModelsList = new();
+
         int ID;
-        List<Sphere> spheresList = new();
-        List<Model> modelsList = new();
 
         public struct MaterialData
         {
@@ -19,7 +20,7 @@ namespace Lib
             public vec3 emissionColor;
             public float emissionStrength;
 
-            private readonly vec3 _pad0;    //padding because otherwise OpenGL will cry
+            private readonly vec3 pad0;    //padding because otherwise OpenGL will cry
             public float glossiness;
         }
 
@@ -34,13 +35,13 @@ namespace Lib
         public struct TriangleData
         {
             public vec3 v0;
-            public float pad0;
+            private readonly float pad0;
 
             public vec3 v1;
-            public float pad1;   // Lots of padding because i don't even want to risk getting other errors and bugs
+            private readonly float pad1;   // Lots of padding because i don't even want to risk getting other errors and bugs
 
             public vec3 v2;
-            public float pad2;
+            private readonly float pad2;
 
             public MaterialData material;
         }
@@ -151,114 +152,81 @@ namespace Lib
         }
         #endregion
 
-        #region Spheres
-        public void AddToSphereList(Sphere sphere)
+        public void SendSpheresToShader(RaytracingScene scene)
         {
-            spheresList.Add(sphere);
-            SendSpheresToShader();
-        }
+            List<Sphere> spheresList = scene.GetSpheresInScene();
 
-        public void RemoveFromSphereList(int index)
-        {
-            List<Sphere> removedElementList = GetSpheresList();
-            removedElementList.RemoveAt(index);
-
-            SetSpheresList(removedElementList);
-        }
-      
-        public List<Sphere> GetSpheresList()
-        {
-            return spheresList;
-        }
-
-        public void SetSpheresList(List<Sphere> spheres)
-        {
-            spheresList = spheres;
-        }
-
-        public void SendSpheresToShader()
-        {
-            SetInt("numSpheres", spheresList.ToArray().Length);
-
-            SphereData[] sphereDataArray = spheresList.Select(s => new SphereData
+            if (spheresList != previousSpheresList)
             {
-                position = s.position,
-                radius = s.radius,
-                material = new MaterialData
+                previousSpheresList = spheresList;
+                SetInt("numSpheres", spheresList.Count());
+
+                SphereData[] sphereDataArray = spheresList.Select(s => new SphereData
                 {
-                    color = s.material.color,
-                    smoothness = s.material.smoothness,
+                    position = s.position,
+                    radius = s.radius,
+                    material = new MaterialData
+                    {
+                        color = s.material.color,
+                        smoothness = s.material.smoothness,
 
-                    emissionColor = s.material.emissionColor,
-                    emissionStrength = s.material.emissionStrength,
-                    
-                    glossiness = s.material.glossiness
-                }
-            }).ToArray();
+                        emissionColor = s.material.emissionColor,
+                        emissionStrength = s.material.emissionStrength,
 
-            int bindingPoint = 0;
-            int bufferSize = Marshal.SizeOf(typeof(SphereData)) * sphereDataArray.Length;
-            GL.GenBuffers(1, out int sphereBuffer);
-            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, bindingPoint, sphereBuffer);
-            GL.BufferData(BufferTarget.ShaderStorageBuffer, bufferSize, sphereDataArray, BufferUsageHint.DynamicDraw);
-        }
-        #endregion
+                        glossiness = s.material.glossiness
+                    }
+                }).ToArray();
 
-        #region Models
-
-        public void LoadMesh(string path)
-        {
-            modelsList.Add(ModelLoader.LoadModel(path));
+                int bindingPoint = 0;
+                int bufferSize = Marshal.SizeOf(typeof(SphereData)) * sphereDataArray.Length;
+                GL.GenBuffers(1, out int sphereBuffer);
+                GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, bindingPoint, sphereBuffer);
+                GL.BufferData(BufferTarget.ShaderStorageBuffer, bufferSize, sphereDataArray, BufferUsageHint.DynamicDraw);
+            }  
         }
 
-        public List<Model> GetModelsList()
+        public void SendTrianglesToShader(RaytracingScene scene)
         {
-            return modelsList;
-        }
+            List<Model> modelsList = scene.GetModelsInScene();
 
-        public void SetModelsList(List<Model> models)
-        {
-            modelsList = models;
-        }
+            if (modelsList != previousModelsList)
+            {
+                previousModelsList = modelsList;
+                List<TriangleData> triangleDataList = new List<TriangleData>();
 
-        public void SendTrianglesToShader()
-        {
-            List<Triangle> trianglesList = new List<Triangle>();
-
-            foreach (Model model in modelsList) { 
-                foreach (Triangle triangle in model.Triangles)
+                foreach (Model model in modelsList)
                 {
-                    trianglesList.Add(triangle);
+                    foreach (Triangle triangle in model.triangles)
+                    {
+                        triangleDataList.Add(new TriangleData
+                        {
+                            v0 = triangle.v0,
+                            v1 = triangle.v1,
+                            v2 = triangle.v2,
+
+                            material = new MaterialData
+                            {
+                                color = triangle.material.color,
+                                emissionColor = triangle.material.emissionColor,
+                                emissionStrength = triangle.material.emissionStrength,
+                                smoothness = triangle.material.smoothness,
+                                glossiness = triangle.material.glossiness
+                            }
+                        });
+                    }
                 }
+
+                SetInt("numTriangles", triangleDataList.Count());
+
+                TriangleData[] triangleDataArray = triangleDataList.ToArray();
+
+                int bindingPoint = 1;
+                int bufferSize = Marshal.SizeOf(typeof(TriangleData)) * triangleDataArray.Length;
+                GL.GenBuffers(1, out int triangleBuffer);
+                GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, bindingPoint, triangleBuffer);
+                GL.BufferData(BufferTarget.ShaderStorageBuffer, bufferSize, triangleDataArray, BufferUsageHint.DynamicDraw);
             }
-
-            SetInt("numTriangles", trianglesList.ToArray().Length);
-
-            TriangleData[] triangleDataArray = trianglesList.Select(t => new TriangleData
-            {
-                v0 = t.v0,
-                v1 = t.v1,
-                v2 = t.v2,
-                material = new MaterialData
-                {
-                    color = t.material.color,
-                    smoothness = t.material.smoothness,
-
-                    emissionColor = t.material.emissionColor,
-                    emissionStrength = t.material.emissionStrength,
-
-                    glossiness = t.material.glossiness
-                }
-            }).ToArray();
-
-            int bindingPoint = 1;
-            int bufferSize = Marshal.SizeOf(typeof(TriangleData)) * triangleDataArray.Length;
-            GL.GenBuffers(1, out int sphereBuffer);
-            GL.BindBufferBase(BufferRangeTarget.ShaderStorageBuffer, bindingPoint, sphereBuffer);
-            GL.BufferData(BufferTarget.ShaderStorageBuffer, bufferSize, triangleDataArray, BufferUsageHint.DynamicDraw);
         }
-
-        #endregion
 
         public int GetProgramShader()
         {

@@ -79,7 +79,8 @@ class main
 
     private static GameWindow window;
     private static ImGuiController controller;
-    private static Shader rayTracerShader = new Shader(Path.Combine(rootDirectory, "src\\shaders\\vertex.vert"), Path.Combine(rootDirectory, "src\\shaders\\fragment.frag"));
+    private static Shader rayTracerShader = new Shader(Path.Combine(rootDirectory, "src\\shaders\\vertex.glsl"), Path.Combine(rootDirectory, "src\\shaders\\fragment.glsl"));
+    private static RaytracingScene mainScene = new RaytracingScene(new Dictionary<string, Lib.Object>());
 
     static void Main()
     {
@@ -114,6 +115,8 @@ class main
 
     private static void OnLoad()
     {
+        Console.SetOut(filteringStringWriter);
+
         // Initialize VAO
         // ----------------------------------
         GL.GenVertexArrays(1, out VAO);
@@ -163,10 +166,7 @@ class main
         // Initialize ImGui
         controller = new ImGuiController(WIDTH, HEIGHT);
 
-        rayTracerShader.LoadMesh(Path.Combine(Common.GetRootDirectory(), "models\\flower.obj"));
-        rayTracerShader.SendTrianglesToShader();
-
-        Console.SetOut(filteringStringWriter);
+        //mainScene.AddObjectInScene(ModelLoader.LoadModel(Path.Combine(rootDirectory, "models\\cube.obj")));
     }
 
     private static void OnUpdateFrame(FrameEventArgs e)
@@ -234,7 +234,7 @@ class main
 
         // Draw ImGui
         controller.Update(window, (float)e.Time);
-        ImGuiHandler.ConstructImGui(rayTracerShader);
+        ImGuiHandler.ConstructImGui(mainScene);
         controller.Render();
         ImGuiController.CheckGLError("End of frame");
 
@@ -253,19 +253,63 @@ class main
         bool ctrlPressed = e.Modifiers == KeyModifiers.Control;
         bool shiftPressed = e.Modifiers == KeyModifiers.Shift;
 
-        if (e.Key == Keys.Backspace && ImGui.GetIO().WantTextInput)
+        if (ImGui.GetIO().WantTextInput)
         {
-            ImGui.GetIO().AddInputCharacter('\b');
-        }
-        else
-        {
-            char keyChar = Common.GetCharFromKeyCode(e.Key);
-            if (keyChar != '\0')
+            switch (e.Key)
             {
-                controller.PressChar(keyChar);
+                case Keys.Backspace:
+                {
+                    ImGui.GetIO().AddInputCharacter('\b');
+                    break;
+                }
+
+                case Keys.KeyPadAdd:
+                {
+                    ImGui.GetIO().AddInputCharacter('+');
+                    break;
+                }
+
+                case Keys.KeyPadSubtract:
+                {
+                    ImGui.GetIO().AddInputCharacter('-');
+                    break;
+                }
+
+                case Keys.KeyPadMultiply:
+                {
+                    ImGui.GetIO().AddInputCharacter('*');
+                    break;
+                }
+
+                case Keys.KeyPadDivide:
+                {
+                    ImGui.GetIO().AddInputCharacter('/');
+                    break;
+                }
+
+                case Keys.Period:
+                {
+                    ImGui.GetIO().AddInputCharacter('.');
+                    break;
+                }
+
+                case Keys.Comma:
+                {
+                    ImGui.GetIO().AddInputCharacter(',');
+                    break;
+                }
+
+                default:
+                {
+                    char keyChar = Common.GetCharFromKeyCode(e.Key);
+                    if (keyChar != '\0')
+                    {
+                        controller.PressChar(keyChar);
+                    }
+                    break;
+                }
             }
         }
-
 
         if (ctrlPressed)
         {
@@ -275,19 +319,13 @@ class main
                 {
                     case Keys.S:
                     {
-                        SaveHelper.SaveScene(rayTracerShader);
+                        SaveHelper.SaveScene(mainScene);
                         spamCooldown = (float)GLFW.GetTime();
                         break;
                     }
                     case Keys.L:
                     {
-                        SaveHelper.LoadScene(rayTracerShader);
-                        spamCooldown = (float)GLFW.GetTime();
-                        break;
-                    }
-                    case Keys.D:
-                    {
-                        SaveHelper.ClearScene(rayTracerShader);
+                        SaveHelper.LoadScene(mainScene);
                         spamCooldown = (float)GLFW.GetTime();
                         break;
                     }
@@ -365,27 +403,7 @@ class main
 
             case MouseButton.Left:
             {
-                if (!isAnyWindowHovered && !progressiveRenderingActivated)
-                {
-                    lastCursorPosition = new vec2(window.MouseState.Position.X, window.MouseState.Position.Y);
-
-                    int sphereHitIndex = RayCaster.CheckSphereIntersectionCoord(
-                        lastCursorPosition,
-                        cameraPosition,
-                        rayTracerShader,
-                        new vec2(currentWidth, currentHeight),
-                        fov,
-                        inverseViewMatrix
-                    );
-
-                    if (sphereHitIndex != int.MinValue)
-                    {
-                        //rayTracerShader.RemoveFromSphereList(sphereHitIndex);
-                    }
-                }
-
                 scenePopupOpen = false;
-
                 break;
             }
 
@@ -407,9 +425,6 @@ class main
             }
 
         }
-
-
-
     }
 
     private static void OnMouseButtonUp(MouseButtonEventArgs e)
@@ -447,7 +462,7 @@ class main
         }
         else
         {
-            aspectRatio = 1.1f;
+            aspectRatio = 1.0f;
         }
 
         GL.BindTexture(TextureTarget.Texture2D, currentFrameTexture);
@@ -479,7 +494,8 @@ class main
     #region Methods
     private static void UpdateScene(Shader shader)
     {
-        shader.SendSpheresToShader();
+        shader.SendSpheresToShader(mainScene);
+        shader.SendTrianglesToShader(mainScene);
     }
 
     private static void UpdateUniforms(Shader shader)

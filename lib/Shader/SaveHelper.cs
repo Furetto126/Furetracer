@@ -9,9 +9,9 @@ namespace Lib
         static string directoryPath = Path.Combine(Common.GetRootDirectory(), "saves");
         static string savePath = Path.Combine(directoryPath, "save1.emn");
         
-        public static void SaveScene(Shader shader)
+        public static void SaveScene(RaytracingScene scene)
         {
-            List<Sphere> sphereList = shader.GetSpheresList();
+            List<Sphere> sphereList = scene.GetSpheresInScene();
 
             if (!Directory.Exists(directoryPath))
             {
@@ -69,7 +69,7 @@ namespace Lib
             Console.WriteLine("SAVED with length " + sphereList.Count);
         }
 
-        public static void LoadScene(Shader shader)
+        public static void LoadScene(RaytracingScene scene)
         {
             if (!File.Exists(savePath))
             {
@@ -83,7 +83,7 @@ namespace Lib
             csv.Read();
             csv.ReadHeader();
 
-            shader.GetSpheresList().Clear();
+            scene.GetSpheresInScene().Clear();
 
             while (csv.Read())
             {
@@ -100,7 +100,7 @@ namespace Lib
                             csv.GetField<float>("Smoothness"),
                             csv.GetField<float>("Glossiness")
                         );
-                        shader.AddToSphereList(sphere);
+                        scene.AddObjectInScene(sphere);
                         Console.WriteLine("Loaded " + csv.GetField<string>("Name"));
                             
                         break;
@@ -108,13 +108,6 @@ namespace Lib
                     // aggiungi qualcos altro bho emoji35
                 }
             }
-        }
-
-        public static void ClearScene(Shader shader)
-        {
-            Console.WriteLine("Cleared Scene");
-
-            shader.SetSpheresList(new List<Sphere>());
         }
     }
 }

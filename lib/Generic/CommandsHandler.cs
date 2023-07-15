@@ -4,30 +4,44 @@ namespace Lib
 {
     abstract class Command
     {
-        public static int defaultTarget = -1;
+        public static string defaultTarget = "";
         public abstract string Name { get; protected set; }
-        public abstract void Execute(string[] parsedCommand, Shader shader);
+        public abstract void Execute(string[] parsedCommand, RaytracingScene scene);
+    }
+
+    class HelpCommand : Command
+    {
+        public override string Name { get; protected set; } = "help";
+
+        public override void Execute(string[] parsedCommand, RaytracingScene scene)
+        {
+            // Add descriptions for each commands
+            Console.WriteLine("List of commands: ");
+            foreach (Command command in CommandParser.commands.Values.OfType<Command>())
+            {
+                Console.WriteLine(command.Name);
+            }
+
+        }
     }
 
     class SelectCommand : Command
     {
         public override string Name { get; protected set; } = "select";
 
-        public override void Execute(string[] parsedCommand, Shader shader)
+        public override void Execute(string[] parsedCommand, RaytracingScene scene)
         {
-            int target = -1;
+            string target = parsedCommand[0];
 
-            if (!int.TryParse(parsedCommand[0], out target))
+            if (scene.ExistsInScene(target))
             {
-                Console.WriteLine("Invalid arguments for \"select\" command. Expected int"); return;
+                defaultTarget = target;
+                Console.WriteLine("Selected " + defaultTarget + " as default target");
             }
-            else if (target < 0 || target >= shader.GetSpheresList().Count)
+            else
             {
-                Console.WriteLine("Did not find a matching object index!"); return;
+                Console.WriteLine("Specified target is not in scene!");
             }
-
-            defaultTarget = target;
-            Console.WriteLine("Selected " + defaultTarget + " as default target");
         }
     }
 
@@ -35,10 +49,78 @@ namespace Lib
     {
         public override string Name { get; protected set; } = "deselect";
 
-        public override void Execute(string[] parsedCommand, Shader shader)
+        public override void Execute(string[] parsedCommand, RaytracingScene scene)
         {
-            defaultTarget = -1;
+            defaultTarget = "";
             Console.WriteLine("Removed previous default target");
+        }
+    }
+
+    class NewCommand : Command
+    {
+        public override string Name { get; protected set; } = "new";
+
+        public override void Execute(string[] parsedCommand, RaytracingScene scene) 
+        {
+            /*
+                new sphere (0 0 0)
+                new model (path) /\(0 0 0)/\
+            */
+
+            string type = "";
+
+            if (parsedCommand.Length < 1)
+            {
+                Console.WriteLine("Invalid arguments for \"new\" command. Expected string (string) float float float"); return;
+            }
+
+            type = parsedCommand[0];
+
+            if (type.ToLower().Equals("sphere"))
+            {
+                if (parsedCommand.Length == 1)
+                {
+                    scene.AddObjectInScene(new Sphere(Common.GiveDefaultFreeName(scene, "Sphere")));
+                }
+                else if (parsedCommand.Length == 4)
+                {
+                    if (!float.TryParse(parsedCommand[parsedCommand.Length - 3], out float pos1) ||
+                        !float.TryParse(parsedCommand[parsedCommand.Length - 2], out float pos2) ||
+                        !float.TryParse(parsedCommand[parsedCommand.Length - 1], out float pos3))
+                    {
+                        Console.WriteLine("Invalid arguments for \"new\" command. Expected float float float"); return;
+                    }
+
+                    vec3 position = new vec3(pos1, pos2, pos3);
+                    Sphere sphere = new Sphere(Common.GiveDefaultFreeName(scene, "Sphere"));
+                    sphere.position = position;
+                    scene.AddObjectInScene(sphere);
+                }
+                else if (parsedCommand.Length == 5)
+                {
+                    string name = parsedCommand[1];
+
+                    if (!float.TryParse(parsedCommand[parsedCommand.Length - 3], out float pos1) ||
+                        !float.TryParse(parsedCommand[parsedCommand.Length - 2], out float pos2) ||
+                        !float.TryParse(parsedCommand[parsedCommand.Length - 1], out float pos3))
+                    {
+                        Console.WriteLine("Invalid arguments for \"new\" command. Expected float float float"); return;
+                    }
+
+                    vec3 position = new vec3(pos1, pos2, pos3);
+                    Sphere sphere = new Sphere(Common.GiveDefaultFreeName(scene, name));
+                    sphere.position = position;
+                    scene.AddObjectInScene(sphere);
+                }
+                else
+                {
+                    Console.WriteLine("Invalid arguments for \"new\" command. Expected string (string) float float float"); return;
+                }
+            }
+            else if (type.ToLower().Equals("model"))
+            {
+                Console.WriteLine("ci godo emoji");
+            }
         }
     }
 
@@ -46,17 +128,19 @@ namespace Lib
     {
         public override string Name { get; protected set; } = "move";
 
-        public override void Execute(string[] arguments, Shader shader)  // move (69) 0 0 0
+        public override void Execute(string[] parsedCommand, RaytracingScene scene)
         {
-            int target = -1;
+            // TEMP: ONLY SPHERES, ADD SUPPORT FOR MODELS LATER
 
-            if (arguments.Length < 3)
+            string target = "";
+
+            if (parsedCommand.Length < 3)
             {
                 Console.WriteLine("Did not specify enough argument for \"move\" command!"); return;
             }
-            else if (arguments.Length == 3)
+            else if (parsedCommand.Length == 3)
             {
-                if (defaultTarget != -1)
+                if (!defaultTarget.Equals(""))
                 {
                     target = defaultTarget;
                 }
@@ -65,33 +149,45 @@ namespace Lib
                     Console.WriteLine("An appropiate selected or specified target for \"move\" command was not found!"); return;
                 }
             }
-            else if (arguments.Length == 4) {
-                if (!int.TryParse(arguments[0], out target))
-                {
-                    Console.WriteLine("Did not specify a valid argument value!"); return;
-                }
-            }
-
-            if (target < 0 || target >= shader.GetSpheresList().Count) {
-                Console.WriteLine("Did not find a matching object index!"); return;
-            }
-            
-            if (!float.TryParse(arguments[arguments.Length - 3], out float pos1) ||
-                !float.TryParse(arguments[arguments.Length - 2], out float pos2) || 
-                !float.TryParse(arguments[arguments.Length - 1], out float pos3))
+            else if (parsedCommand.Length == 4)
             {
-                Console.WriteLine("Invalid arguments for \"move\" command. Expected float float float"); return;
+                target = parsedCommand[0];
+            }
+            else if (parsedCommand.Length > 4)
+            {
+                Console.WriteLine("Too many arguments for command \"move\"!"); return;
             }
 
-            vec3 moveCoords = new vec3(pos1, pos2, pos3);
-            shader.GetSpheresList()[target].position = moveCoords;
-            Console.WriteLine("Moved " + target + " at position " + moveCoords);
+            if (!scene.ExistsInScene(target))
+            {
+                Console.WriteLine("Specified target is not in scene!"); return;
+            }
+
+            if (scene.GetObjectByName(target) is Sphere)
+            {
+                if (!float.TryParse(parsedCommand[parsedCommand.Length - 3], out float pos1) ||
+                !float.TryParse(parsedCommand[parsedCommand.Length - 2], out float pos2) ||
+                !float.TryParse(parsedCommand[parsedCommand.Length - 1], out float pos3))
+                {
+                    Console.WriteLine("Invalid arguments for \"move\" command. Expected float float float"); return;
+                }
+
+                Sphere sphere = (Sphere)scene.GetObjectByName(target);
+
+                vec3 moveCoords = new vec3(pos1, pos2, pos3);
+                sphere.position = moveCoords;
+                Console.WriteLine("Moved " + target + " at position " + moveCoords);
+            }
+            else
+            {
+                Console.WriteLine("Support for this command on objects of type \"Model\" coming soon ;)");
+            }
         }
     }
 
     class CommandParser
     {
-        private Dictionary<string, Command> commands;
+        public static Dictionary<string, Command> commands;
 
         public CommandParser()
         {
@@ -100,8 +196,10 @@ namespace Lib
         }
 
         private void RegisterCommands() {
+            RegisterCommand(new HelpCommand());
             RegisterCommand(new SelectCommand());
             RegisterCommand(new DeselectCommand());
+            RegisterCommand(new NewCommand());
             RegisterCommand(new MoveCommand());
         }
 
@@ -110,7 +208,7 @@ namespace Lib
             commands[command.Name] = command;
         }
 
-        public void ParseAndExecute(string input, Shader shader)
+        public void ParseAndExecute(string input, RaytracingScene scene)
         {
             string[] parts = input.Split(' ');
             if (parts.Length == 0) {
@@ -121,7 +219,7 @@ namespace Lib
             if (commands.TryGetValue(commandName, out Command command))
             {
                 string[] arguments = parts.Skip(1).ToArray();
-                command.Execute(arguments, shader);
+                command.Execute(arguments, scene);
             }
             else
             {

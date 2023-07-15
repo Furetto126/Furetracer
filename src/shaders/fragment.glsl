@@ -52,13 +52,26 @@ struct Material {
     vec3 emissionColor;
     float emissionStrength;
 
-    vec3 _pad0;
+    vec3 pad0;
     float glossiness;
 };
 
 struct Sphere {
     vec3 position;
     float radius;
+
+    Material material;
+};
+
+struct Triangle {
+    vec3 v0;
+    float pad0;
+
+    vec3 v1;
+    float pad1;
+
+    vec3 v2;
+    float pad2;
 
     Material material;
 };
@@ -81,6 +94,12 @@ struct Hit {
         Sphere spheres[];
     };
 
+    uniform int numTriangles;
+
+    layout(std430, binding = 1) buffer TriangleBuffer {
+        Triangle triangles[];
+    };
+ 
 // From https://stackoverflow.com/a/4275343/
 float rand(inout uint seed){
     seed = seed * 747796405 + 2891336453;
@@ -142,9 +161,15 @@ Hit sphereIntersection(Ray ray, Sphere sphere) {
     return sphereHit;
 }
 
-Hit triangleIntersection(Ray ray, vec3 v0, vec3 v1, vec3 v2) {
+Hit triangleIntersection(Ray ray, Triangle triangle) {
     Hit triangleHit;
+    triangleHit.hitRegistered = false;
+
     const float EPSILON = 0.0;
+
+    vec3 v0 = triangle.v0;
+    vec3 v1 = triangle.v1;
+    vec3 v2 = triangle.v2;
 
     vec3 edge1 = v1 - v0;
     vec3 edge2 = v2 - v0;
@@ -181,7 +206,6 @@ Hit triangleIntersection(Ray ray, vec3 v0, vec3 v1, vec3 v2) {
     float t = dot(edge2, qvec) * invDet;
     
     triangleHit.hitRegistered = true;
-    triangleHit.material.color = vec3(0.0, 1.0, 0.0);
     triangleHit.hitDistance = t;
     triangleHit.hitPoint = ray.origin + ray.direction * t;
     triangleHit.hitNormal = normalize(cross(edge1, edge2));
@@ -198,6 +222,14 @@ Hit objectsDepthTest(Ray ray) {
             closestHit = sphereHit;
             closestHit.material = spheres[i].material;
         } 
+    }
+
+    for (int i = 0; i < numTriangles; i++) {
+        Hit triangleHit = triangleIntersection(ray, triangles[i]);
+        if (triangleHit.hitRegistered && triangleHit.hitDistance < closestHit.hitDistance) {
+            closestHit = triangleHit;
+            closestHit.material = triangles[i].material;
+        }
     }
     return closestHit;
 }
@@ -261,18 +293,6 @@ vec4 pixelResult() {
         Hit objectHit = objectsDepthTest(ray);
         final = objectHit.hitRegistered ? vec4(objectHit.material.color, 1.0) : vec4(getEnvironmentLight(ray), 1.0);
     } 
-
-    vec3 v0 = vec3(-1000.0, -1000.0, 1000.0);
-    vec3 v1 = vec3(1000.0, -1000.0, 1000.0);
-    vec3 v2 = vec3(0.0, 1000.0, 1000.0);
-
-    //final = vec4(triangleIntersection(ray, v0, v1, v2).material.color, 1.0);
-    Sphere sphere;
-    sphere.position = vec3(100.0);
-    sphere.radius = 100.0;
-    //final = sphereIntersection(ray, sphere).hitRegistered ? vec4(1.0) : vec4(0.0);
-    //final = triangleIntersection(ray, v0, v1, v2).hitRegistered ? vec4(1.0) : vec4(0.0);
-
     return final;
 }
 
@@ -284,8 +304,5 @@ void main() {
         FragColor = texture(previousFrameTex, TexCoord) * (1.0 - weigth) + currentResult * weigth;
     }else {
         FragColor = currentResult;
-    }
-
-    //FragColor = currentResult;
-    
+    }    
 }

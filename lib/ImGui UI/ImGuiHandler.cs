@@ -6,13 +6,14 @@ namespace Lib
 {
     class ImGuiHandler
     {
-        private static int inspectoredElement = -1;
+        private static string inspectoredElement = "";
         private static string commandSent = "";
+        private static string renamed = "";
         private static string saveTarget = "";
         private static bool isRendering = false;
         private static int renderTime = 5;
 
-        public static void ConstructImGui(Shader shader)
+        public static void ConstructImGui(RaytracingScene scene)
         {
             Vector2 windowSize = ImGui.GetIO().DisplaySize;
 
@@ -30,46 +31,46 @@ namespace Lib
             ImGui.Begin("Right Panel", rightPanelFlags);
             main.isInspectorWindowHovered = ImGui.IsWindowHovered();
 
-            if (inspectoredElement != -1) // A sphere is selected
+            if (!inspectoredElement.Equals("")) // An object is selected
             {
-                Sphere currentSphere = shader.GetSpheresList().ToArray()[inspectoredElement];
+                Object selectedObject = scene.GetObjectByName(inspectoredElement);
 
-                Vector3 position = new Vector3(currentSphere.position.x, currentSphere.position.y, currentSphere.position.z);
-                Vector3 color = new Vector3(currentSphere.material.color.x, currentSphere.material.color.y, currentSphere.material.color.z);
-                Vector3 emissionColor = new Vector3(currentSphere.material.emissionColor.x, currentSphere.material.emissionColor.y, currentSphere.material.emissionColor.z);
-
-                // Set ImGui elements for the inspector window
-                // -------------------------------------------
-                ImFontPtr previousFont = ImGui.GetFont();
-                ImGui.SetWindowFontScale(20.0f / previousFont.FontSize);
-
-                ImGui.Text("Sphere" + inspectoredElement);
-                ImGui.SameLine();
-
-                ImGui.Dummy(new Vector2(2.0f, 0.0f));
-                ImGui.SameLine();
-
-                ImGui.SetWindowFontScale(1.0f);
-                if (ImGui.Button("Delete"))
+                if (selectedObject is Sphere)
                 {
-                    shader.RemoveFromSphereList(inspectoredElement);
-                    inspectoredElement = int.MinValue;
+                    Sphere currentSphere = (Sphere)selectedObject;
+
+                    Vector3 position = new Vector3(currentSphere.position.x, currentSphere.position.y, currentSphere.position.z);
+                    Vector3 color = new Vector3(currentSphere.material.color.x, currentSphere.material.color.y, currentSphere.material.color.z);
+                    Vector3 emissionColor = new Vector3(currentSphere.material.emissionColor.x, currentSphere.material.emissionColor.y, currentSphere.material.emissionColor.z);
+
+                    // Set ImGui elements for the inspector window
+                    // -------------------------------------------
+                    ImFontPtr previousFont = ImGui.GetFont();
+                    ImGui.SetWindowFontScale(20.0f / previousFont.FontSize);
+
+                    ImGui.Text(inspectoredElement);
+                    ImGui.SameLine();
+                    ImGui.SetWindowFontScale(1.0f);
+                    ImGui.Dummy(new Vector2(1.0f, 10.0f));
+
+                    ImGui.InputFloat3("Position", ref position);
+                    ImGui.InputFloat("Radius", ref currentSphere.radius);
+                    ImGui.ColorEdit3("Color", ref color);
+                    ImGui.ColorEdit3("Emission Color", ref emissionColor);
+                    ImGui.InputFloat("Emission strength", ref currentSphere.material.emissionStrength);
+                    ImGui.InputFloat("Smoothness", ref currentSphere.material.smoothness);
+                    ImGui.InputFloat("Glossiness", ref currentSphere.material.glossiness);
+
+                    // Set vector attributes
+                    currentSphere.position = new vec3(position.X, position.Y, position.Z);
+                    currentSphere.material.color = new vec3(color.X, color.Y, color.Z);
+                    currentSphere.material.emissionColor = new vec3(emissionColor.X, emissionColor.Y, emissionColor.Z);
                 }
-
-                ImGui.Dummy(new Vector2(1.0f, 10.0f));
-
-                ImGui.InputFloat3("Position", ref position);
-                ImGui.InputFloat("Radius", ref currentSphere.radius);
-                ImGui.ColorEdit3("Color", ref color);
-                ImGui.ColorEdit3("Emission Color", ref emissionColor);
-                ImGui.InputFloat("Emission strength", ref currentSphere.material.emissionStrength);
-                ImGui.InputFloat("Smoothness", ref currentSphere.material.smoothness);
-                ImGui.InputFloat("Glossiness", ref currentSphere.material.glossiness);
-
-                // Set vector attributes
-                currentSphere.position = new vec3(position.X, position.Y, position.Z);
-                currentSphere.material.color = new vec3(color.X, color.Y, color.Z);
-                currentSphere.material.emissionColor = new vec3(emissionColor.X, emissionColor.Y, emissionColor.Z);
+                else if (selectedObject is Model)
+                {
+                    Model currentModel = (Model)selectedObject;
+                    //Console.WriteLine("selected model: " + currentModel.DisplayName);
+                }
             }
 
             ImGui.End();
@@ -146,7 +147,7 @@ namespace Lib
             if (ImGui.InputText("Command line", ref commandSent, 100, ImGuiInputTextFlags.EnterReturnsTrue) && !commandSent.Replace(" ", "").Equals(""))
             {
                 CommandParser parser = new CommandParser();
-                parser.ParseAndExecute(commandSent, shader);
+                parser.ParseAndExecute(commandSent, scene);
 
                 commandSent = "";
                 ImGui.SetItemDefaultFocus();
@@ -171,7 +172,7 @@ namespace Lib
             ImGui.Begin("Left Panel", leftPanelFlags);
             main.isSceneWindowHovered = ImGui.IsWindowHovered();
 
-            for (int i = 0; i < shader.GetSpheresList().Count; i++)
+            /*for (int i = 0; i < shader.GetSpheresList().Count; i++)
             {
                 if (ImGui.Selectable("Sphere" + i))
                 {
@@ -198,6 +199,53 @@ namespace Lib
 
                     ImGui.EndPopup();
                 }
+            }*/
+
+            foreach (Object obj in scene.GetObjectsInSceneList())
+            {
+                string objName = obj.DisplayName;
+
+                if (ImGui.Selectable(objName))
+                {
+                    inspectoredElement = objName;
+                }
+
+                if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                {
+                    ImGui.OpenPopup("Edit object " + objName);
+                }
+
+                if (ImGui.BeginPopup("Edit object " + objName))
+                {
+                    if (ImGui.MenuItem("Delete"))
+                    {
+                        inspectoredElement = "";
+                        scene.RemoveObjectInScene(obj);
+                        ImGui.CloseCurrentPopup();
+                    }
+
+                    /*if (ImGui.MenuItem("Rename"))
+                    {
+                        if (ImGui.InputText("Rename", ref renamed, 100, ImGuiInputTextFlags.EnterReturnsTrue) && !commandSent.Replace(" ", "").Equals(""))
+                        {
+                            obj.DisplayName = renamed;
+                            renamed = "";
+                            ImGui.CloseCurrentPopup();
+                        }
+                    }*/
+
+                    if (ImGui.MenuItem("Duplicate"))
+                    {
+                        Object duplicatedObject = obj;
+
+                        duplicatedObject.DisplayName = Common.GiveDefaultFreeName(scene, objName);
+                        scene.AddObjectInScene(duplicatedObject);
+
+                        ImGui.CloseCurrentPopup();
+                    }
+
+                    ImGui.EndPopup();
+                }
             }
 
             if (main.scenePopupOpen)
@@ -213,7 +261,15 @@ namespace Lib
             {
                 if (ImGui.MenuItem("New Sphere"))
                 {
-                    shader.AddToSphereList(new Sphere());
+                    int suffix = 1;
+
+                    while (scene.ExistsInScene("Sphere" + suffix))
+                    {
+                        suffix++;
+                    }
+
+                    scene.AddObjectInScene(new Sphere("Sphere" + suffix));
+
                     ImGui.CloseCurrentPopup();
                 }
 
