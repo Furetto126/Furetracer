@@ -8,10 +8,10 @@ With "Ctrl + S" you save your scene and with "Ctrl + L" you load it.
 Click "Esc" to quit the program.  
 
 TODO:
-Get triangles from 3D models and send it to the shader (DONE). 
+Get triangles from 3D models and send it to the shader (DONE).  
 Render polygons from 3D models (WIP).  
 Make a proper rendering system (and being able to make animations/videos).  
-Get a custom console with commands to have a separate "only keyboard" mode (WIP).  
+Get a custom console with commands to have a separate "only keyboard" mode (DONE).  
 Polish GUI (WIP).  
 Implement an acceleration structure to optimize ray intersection search.  
 
