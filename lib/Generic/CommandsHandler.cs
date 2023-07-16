@@ -6,31 +6,54 @@ namespace Lib
     {
         public static string defaultTarget = "";
         public abstract string Name { get; protected set; }
+        public abstract string Description { get; protected set; }
         public abstract void Execute(string[] parsedCommand, RaytracingScene scene);
     }
 
     class HelpCommand : Command
     {
         public override string Name { get; protected set; } = "help";
+        public override string Description { get; protected set; } = "u already know this dont u ;) \nUsage: \"help (command)\"\n";
 
         public override void Execute(string[] parsedCommand, RaytracingScene scene)
         {
-            // Add descriptions for each commands
-            Console.WriteLine("List of commands: ");
-            foreach (Command command in CommandParser.commands.Values.OfType<Command>())
-            {
-                Console.WriteLine(command.Name);
-            }
+            Dictionary<string, Command> commands = CommandParser.commands;
 
+            if (parsedCommand.Length == 0)
+            {
+                Console.WriteLine("List of commands: ");
+                foreach (Command command in commands.Values.OfType<Command>())
+                {
+                    Console.WriteLine(command.Name);
+                }
+            }
+            else
+            {
+                string commandName = parsedCommand[0];
+
+                if (commands.ContainsKey(commandName))
+                {
+                    Console.WriteLine(commands[commandName].Description);
+                }
+                else
+                {
+                    Console.WriteLine("Did not specify a valid command to get the description of!");
+                }
+            }
         }
     }
 
     class SelectCommand : Command
     {
         public override string Name { get; protected set; } = "select";
+        public override string Description { get; protected set; } = "Selects an object from the scene to be the default target of the next commands.\nUsage: \"select object\"\n";
 
         public override void Execute(string[] parsedCommand, RaytracingScene scene)
         {
+            if (parsedCommand.Length < 0)
+            {
+                Console.WriteLine("Did not specify enough argument for \"select\" command!"); return;
+            }
             string target = parsedCommand[0];
 
             if (scene.ExistsInScene(target))
@@ -48,6 +71,7 @@ namespace Lib
     class DeselectCommand : Command
     {
         public override string Name { get; protected set; } = "deselect";
+        public override string Description { get; protected set; } = "Deselects the current default target from next commands.\nUsage: \"deselect\"\n";
 
         public override void Execute(string[] parsedCommand, RaytracingScene scene)
         {
@@ -59,12 +83,13 @@ namespace Lib
     class NewCommand : Command
     {
         public override string Name { get; protected set; } = "new";
+        public override string Description { get; protected set; } = "Creates a new object of the specified type.\nSphere usage: \"new sphere (pos1 pos2 pos3)\" \nModel usage: \"new model path (pos1 pos2 pos3)\"\n";
 
         public override void Execute(string[] parsedCommand, RaytracingScene scene) 
         {
             /*
                 new sphere (0 0 0)
-                new model (path) /\(0 0 0)/\
+                new model path /\(0 0 0)/\
             */
 
             string type = "";
@@ -127,6 +152,7 @@ namespace Lib
     class MoveCommand : Command
     {
         public override string Name { get; protected set; } = "move";
+        public override string Description { get; protected set; } = "Moves the selected object to a destination.\nUsage: \"move (target) pos1 pos2 pos3\"\n";
 
         public override void Execute(string[] parsedCommand, RaytracingScene scene)
         {

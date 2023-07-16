@@ -236,11 +236,19 @@ namespace Lib
 
                     if (ImGui.MenuItem("Duplicate"))
                     {
-                        Object duplicatedObject = obj;
-
-                        duplicatedObject.DisplayName = Common.GiveDefaultFreeName(scene, objName);
-                        scene.AddObjectInScene(duplicatedObject);
-
+                        if (obj is Sphere)
+                        {
+                            Sphere duplicatedObject = new Sphere((Sphere)obj);
+                            duplicatedObject.DisplayName = Common.GiveDefaultFreeName(scene, objName);
+                            scene.AddObjectInScene(duplicatedObject);
+                        }
+                        else if (obj is Model)
+                        {
+                            Model duplicatedObject = new Model((Model)obj);
+                            duplicatedObject.DisplayName = Common.GiveDefaultFreeName(scene, objName);
+                            scene.AddObjectInScene(duplicatedObject);
+                        }
+                        
                         ImGui.CloseCurrentPopup();
                     }
 

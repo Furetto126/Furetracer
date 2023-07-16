@@ -12,5 +12,10 @@ namespace Lib
             DisplayName = name;
             this.triangles = triangles;
         }
+
+        public Model(Model model) {
+            DisplayName = model.DisplayName;
+            triangles = model.triangles;
+        }
     }
 }
