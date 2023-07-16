@@ -4,7 +4,7 @@ All the important ray tracing calculations are happening in the shader code runn
 ## How to use
 It's pretty straightforward: clone, open the project on visual studio and run it!  
 While inside of the program you can move the camera using the scroll wheel (both by pressing it and scolling) and using the right mouse button.  
-By clicking "V" you can spawn a sphere at your location, with "Ctrl + S" you save your scene and with "Ctrl + L" you load it.  
+By clicking "V" you can spawn a sphere at your location, with "Ctrl + S" you save your scene and with "Ctrl + L" you load it.  <- kinda broken rn, fixing it soon :)
 Click "Esc" to quit the program.  
 
 TODO:
