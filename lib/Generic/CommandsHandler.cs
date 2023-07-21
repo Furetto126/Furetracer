@@ -105,7 +105,15 @@ namespace Lib
             {
                 if (parsedCommand.Length == 1)
                 {
-                    scene.AddObjectInScene(new Sphere(Common.GiveDefaultFreeName(scene, "Sphere")));
+                    Sphere sphere = new Sphere(Common.GiveDefaultFreeName(scene, "Sphere"));
+                    sphere.position = main.cameraPosition;
+                    scene.AddObjectInScene(sphere);
+                }
+                else if (parsedCommand.Length == 2)
+                {
+                    Sphere sphere = new Sphere(Common.GiveDefaultFreeName(scene, parsedCommand[1]));
+                    sphere.position = main.cameraPosition;
+                    scene.AddObjectInScene(sphere);
                 }
                 else if (parsedCommand.Length == 4)
                 {

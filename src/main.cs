@@ -11,7 +11,6 @@ using OpenTK.Mathematics;
 class main
 {
     #region Global variables (not including important ones like window etc) and constants
-    private static int colorTest = 0;
 
     // settings
     // --------
@@ -166,7 +165,7 @@ class main
         // Initialize ImGui
         controller = new ImGuiController(WIDTH, HEIGHT);
 
-        //mainScene.AddObjectInScene(ModelLoader.LoadModel(Path.Combine(rootDirectory, "models\\cube.obj")));
+        //mainScene.AddObjectInScene(ModelLoader.LoadModel(Path.Combine(rootDirectory, "models\\Hamburger_01.obj")));
     }
 
     private static void OnUpdateFrame(FrameEventArgs e)
@@ -554,7 +553,7 @@ class main
         float xOffset = cursorOffset.x;
         float yOffset = cursorOffset.y;
 
-        float cameraSpeed = 0.1f;
+        float cameraSpeed = 0.01f;
         vec3 tangent = glm.normalize(new vec3(cameraFront.z, 0.0f, -cameraFront.x));
         vec3 bitangent = glm.cross(cameraFront, tangent);
 

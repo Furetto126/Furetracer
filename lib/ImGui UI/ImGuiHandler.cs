@@ -1,6 +1,7 @@
 ﻿using ImGuiNET;
 using GlmNet;
 using System.Numerics;
+using Assimp.Unmanaged;
 
 namespace Lib
 {
@@ -69,7 +70,33 @@ namespace Lib
                 else if (selectedObject is Model)
                 {
                     Model currentModel = (Model)selectedObject;
-                    //Console.WriteLine("selected model: " + currentModel.DisplayName);
+
+                    Vector3 position = new Vector3(currentModel.position.x, currentModel.position.y, currentModel.position.z);
+                    float size = currentModel.size;
+
+                    // Set ImGui elements for the inspector window
+                    // -------------------------------------------
+                    ImFontPtr previousFont = ImGui.GetFont();
+                    ImGui.SetWindowFontScale(20.0f / previousFont.FontSize);
+
+                    ImGui.Text(inspectoredElement);
+                    ImGui.SameLine();
+                    ImGui.SetWindowFontScale(1.0f);
+                    ImGui.Dummy(new Vector2(1.0f, 10.0f));
+
+                    ImGui.InputFloat3("Position", ref position);
+                    ImGui.InputFloat("Size", ref size);
+
+                    currentModel.SetPosition(new vec3(position.X, position.Y, position.Z));
+                    currentModel.SetSize(size);
+
+                    if (ImGui.Button("debug vertices"))
+                    {
+                        foreach (Triangle triangle in currentModel.triangles)
+                        {
+                            Console.WriteLine(triangle.v0 + ", " + triangle.v1 + ", " + triangle.v2);
+                        }
+                    }
                 }
             }
 
@@ -95,6 +122,11 @@ namespace Lib
 
             ImGui.Checkbox("Activate raytracer", ref main.isRaytracingActivated);
             ImGui.Checkbox("Progressive rendering", ref main.progressiveRenderingActivated);
+
+            if (ImGui.Button("sus"))
+            {
+                scene.AddObjectInScene(ModelLoader.LoadModel(Path.Combine(Common.GetRootDirectory(), "models\\cube.obj")));
+            }
 
             //ImGui.SetCursorPos(new Vector2(ImGui.GetCursorPosX(), settingsPanelSize.Y - 80.0f));
             //ImGui.InputInt("Render time (s)", ref renderTime);
@@ -150,11 +182,7 @@ namespace Lib
                 parser.ParseAndExecute(commandSent, scene);
 
                 commandSent = "";
-                ImGui.SetItemDefaultFocus();
-            }
-
-            if (main.isConsoleWindowHovered && main.isAnyItemHovered) {
-                ImGui.SetKeyboardFocusHere();
+                ImGui.SetKeyboardFocusHere(-1);
             }
 
             ImGui.End();
@@ -171,35 +199,6 @@ namespace Lib
 
             ImGui.Begin("Left Panel", leftPanelFlags);
             main.isSceneWindowHovered = ImGui.IsWindowHovered();
-
-            /*for (int i = 0; i < shader.GetSpheresList().Count; i++)
-            {
-                if (ImGui.Selectable("Sphere" + i))
-                {
-                    inspectoredElement = i;
-                }
-
-                if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
-                {
-                    ImGui.OpenPopup("Edit object " + i);
-                }
-
-                if (ImGui.BeginPopup("Edit object " + i))
-                {
-                    if (ImGui.MenuItem("Delete")) {
-                        inspectoredElement = -1;
-                        shader.RemoveFromSphereList(i);
-                        ImGui.CloseCurrentPopup();
-                    }
-                    if (ImGui.MenuItem("Duplicate"))
-                    {
-                        shader.AddToSphereList(new Sphere(shader.GetSpheresList()[i]));
-                        ImGui.CloseCurrentPopup();
-                    }
-
-                    ImGui.EndPopup();
-                }
-            }*/
 
             foreach (Object obj in scene.GetObjectsInSceneList())
             {

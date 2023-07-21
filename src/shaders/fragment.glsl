@@ -165,7 +165,7 @@ Hit triangleIntersection(Ray ray, Triangle triangle) {
     Hit triangleHit;
     triangleHit.hitRegistered = false;
 
-    const float EPSILON = 0.0;
+    const float EPSILON = 0.00001;
 
     vec3 v0 = triangle.v0;
     vec3 v1 = triangle.v1;
@@ -209,6 +209,8 @@ Hit triangleIntersection(Ray ray, Triangle triangle) {
     triangleHit.hitDistance = t;
     triangleHit.hitPoint = ray.origin + ray.direction * t;
     triangleHit.hitNormal = normalize(cross(edge1, edge2));
+
+    return triangleHit;
 }
 
 Hit objectsDepthTest(Ray ray) {
@@ -252,7 +254,7 @@ vec3 traceRay(Ray ray, inout uint seed) {
         vec3 specular = reflect(ray.direction, objectHit.hitNormal);
 
         ray.origin = objectHit.hitPoint;
-        ray.direction = mix(diffuse, specular, hitMaterial.smoothness   * (hitMaterial.glossiness >= rand(seed) ? 1.0 : 0.0));
+        ray.direction = mix(diffuse, specular, hitMaterial.smoothness * (hitMaterial.glossiness >= rand(seed) ? 1.0 : 0.0));
 
         vec3 objectOutLight = hitMaterial.emissionColor * hitMaterial.emissionStrength;
         final += objectOutLight * rayColor;
